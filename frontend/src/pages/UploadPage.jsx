@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import Folder from "./components/Folder";
+import Folder from "C:\Users\Hp\Downloads\razorpay hackathon\reconmint\frontend\src\components;
 
 const SLOTS = [
   { id: "orders", name: "Orders", icon: "fa-solid fa-cart-shopping", color: "blue", key: "order" },
