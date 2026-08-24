@@ -1,0 +1,105 @@
+{
+  "dataset_size": 520,
+  "match_rate_pct": 97.68,
+  "reconciled_rate_pct": 94.78,
+  "matched_exact": 470,
+  "matched_fuzzy": 35,
+  "avg_confidence_fuzzy": 0.9384,
+  "elapsed_seconds": 0.1345,
+  "throughput_records_per_s": 11557.7,
+  "exception_detection": {
+    "tp": 31,
+    "fp": 5,
+    "fn": 0,
+    "tn": 484,
+    "precision": 0.8611,
+    "recall": 1.0,
+    "f1": 0.9254
+  },
+  "per_category_detection": {
+    "chargeback": {
+      "detected": 12,
+      "total": 12,
+      "recall": 1.0
+    },
+    "duplicate": {
+      "detected": 6,
+      "total": 6,
+      "recall": 1.0
+    },
+    "fee_anomaly": {
+      "detected": 10,
+      "total": 10,
+      "recall": 1.0
+    },
+    "ghost_bank": {
+      "detected": 3,
+      "total": 3,
+      "recall": 1.0
+    }
+  },
+  "confusion_matrix": {
+    "fee_explained": {
+      "reconciled": 235
+    },
+    "clean": {
+      "reconciled": 172
+    },
+    "partial_refund": {
+      "reconciled": 39
+    },
+    "transposed_utr": {
+      "reconciled": 8
+    },
+    "duplicate": {
+      "duplicate": 6
+    },
+    "timing_t2": {
+      "reconciled": 30
+    },
+    "chargeback": {
+      "chargeback": 12
+    },
+    "rounding_noise": {
+      "fee_anomaly": 5
+    },
+    "fee_anomaly": {
+      "fee_anomaly": 10
+    },
+    "ghost_bank": {
+      "ghost": 3
+    }
+  },
+  "errors": [
+    {
+      "payment_id": "pay_0001050",
+      "truth_category": "rounding_noise",
+      "predicted_bucket": "fee_anomaly",
+      "error_type": "false_positive (flagged a good payment)"
+    },
+    {
+      "payment_id": "pay_0001203",
+      "truth_category": "rounding_noise",
+      "predicted_bucket": "fee_anomaly",
+      "error_type": "false_positive (flagged a good payment)"
+    },
+    {
+      "payment_id": "pay_0001247",
+      "truth_category": "rounding_noise",
+      "predicted_bucket": "fee_anomaly",
+      "error_type": "false_positive (flagged a good payment)"
+    },
+    {
+      "payment_id": "pay_0001323",
+      "truth_category": "rounding_noise",
+      "predicted_bucket": "fee_anomaly",
+      "error_type": "false_positive (flagged a good payment)"
+    },
+    {
+      "payment_id": "pay_0001340",
+      "truth_category": "rounding_noise",
+      "predicted_bucket": "fee_anomaly",
+      "error_type": "false_positive (flagged a good payment)"
+    }
+  ]
+}

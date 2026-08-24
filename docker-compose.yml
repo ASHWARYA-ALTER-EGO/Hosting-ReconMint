@@ -1,0 +1,22 @@
+services:
+  reconmint:
+    build: .
+    image: reconmint:latest
+    environment:
+      # set your key in a local .env; compose reads it automatically
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - RECONMINT_LLM_MODEL=${RECONMINT_LLM_MODEL:-gpt-4o-mini}
+      - RECONMINT_DB=/data/audit.db
+    volumes:
+      - reconmint_data:/data
+    command: uvicorn backend.api.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  reconmint_data:

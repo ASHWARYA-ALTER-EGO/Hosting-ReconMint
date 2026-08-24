@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+data/generated/
+*.db
+.DS_Store
+node_modules/
+
+# Claude / assistant files — never track
+.claude/
+CLAUDE.md
+**/.claude/
+*.claude
+memory/
