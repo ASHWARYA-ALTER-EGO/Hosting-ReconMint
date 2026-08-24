@@ -128,3 +128,17 @@ export function getAskExamples() {
 export function auditExportUrl(runId) {
   return `${API_BASE}/runs/${runId}/audit-export?format=csv`;
 }
+
+// ---- UploadPage.jsx convenience wrappers ----------------------------------
+// UploadPage.jsx calls these names directly. They're thin wrappers around the
+// real endpoints above so there's only one source of truth for API calls —
+// no separate stub/mock file needed. Adjust the useLlm defaults here if you
+// want the Upload flow to behave differently from other callers.
+
+export function reconcileFromUpload({ orders, settlement, bank }, useLlm = false) {
+  return reconcileUpload({ orders, settlement, bank }, useLlm);
+}
+
+export function reconcileFromDemo(useLlm = true) {
+  return reconcileDemo(useLlm);
+}
