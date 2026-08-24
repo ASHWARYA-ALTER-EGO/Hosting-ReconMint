@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import Folder from "./components/Folder";
 
 const SLOTS = [
   { id: "orders", name: "Orders", icon: "fa-solid fa-cart-shopping", color: "blue", key: "order" },
@@ -80,6 +81,11 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast }) {
     }
   };
 
+  // Labels for the folder's three "papers" — reflect which slots are still open
+  const folderItems = SLOTS.map((s) =>
+    files[s.id] ? files[s.id].name : s.name
+  );
+
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-6xl mx-auto p-10 lg:p-12">
@@ -127,8 +133,13 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast }) {
               onClick={() => inputRef.current?.click()}
               className="flex-1 rounded-2xl flex flex-col items-center justify-center p-8 bg-slate-50 inset-shadow border border-slate-100 group hover:bg-slate-100/50 cursor-pointer"
             >
-              <div className="w-16 h-16 mb-5 text-emerald-500 flex items-center justify-center bg-white rounded-xl border border-slate-100 shadow-sm group-hover:scale-105 transition-transform">
-                <i className="fa-regular fa-folder-open text-2xl"></i>
+              <div
+                className="mb-5 flex items-center justify-center"
+                style={{ height: 90 }}
+                // Stop the folder's own click/open toggle from also opening the file picker twice
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Folder color="#0f172a" size={0.9} items={folderItems} />
               </div>
               <div className="text-base font-semibold text-slate-800 mb-1">Drop files here</div>
               <div className="text-sm text-slate-500 mb-5">or <span className="text-slate-800 font-medium underline">browse</span> from your device</div>
