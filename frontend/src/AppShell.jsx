@@ -39,7 +39,6 @@ export default function AppShell() {
       } else {
         setEvalData(null);
       }
-      setView("dashboard");
       showToast(
         `Reconciliation complete. ${resp.meta.settlement_active} records in ${resp.meta.elapsed_seconds}s.`
       );
@@ -51,6 +50,7 @@ export default function AppShell() {
     async (useLlm = false) => {
       const resp = await api.reconcileDemo(useLlm);
       await afterRun(resp, true);
+      return resp;
     },
     [afterRun]
   );
@@ -59,6 +59,7 @@ export default function AppShell() {
     async (files, useLlm = false) => {
       const resp = await api.reconcileUpload(files, useLlm);
       await afterRun(resp, false);
+      return resp;
     },
     [afterRun]
   );
@@ -68,7 +69,8 @@ export default function AppShell() {
       <Sidebar active={view} onNavigate={setView} exceptionCount={exceptionCount} />
       <main className="flex-1 overflow-hidden bg-[#fcfcfc]">
         {view === "upload" && (
-          <UploadPage onRunDemo={runDemo} onRunUpload={runUpload} showToast={showToast} />
+          <UploadPage onRunDemo={runDemo} onRunUpload={runUpload} showToast={showToast}
+            onGoDashboard={() => setView("dashboard")} />
         )}
         {view === "dashboard" && (
           <DashboardPage

@@ -16,7 +16,7 @@ settlement - it answers in plain English but never invents a figure."
 # CLEAN PASS  (finishes a distinct, credible, submittable project)
 ===================================================================
 
-## Phase 1 - Settlement Q&A Agent  (the differentiator + kills the "where's the agent?" objection)
+## Phase 1 - Settlement Q&A Agent  [DONE 2026-08-24]  (the differentiator + kills the "where's the agent?" objection)
 **Why:** Turns a pipeline into an agent you talk to; covers a 2nd named direction; best 15s wow.
 **Tasks:**
 - Backend: `POST /ask` - natural-language question over the current run.
@@ -33,7 +33,7 @@ settlement - it answers in plain English but never invents a figure."
 data; a fabricated-number attempt is caught. Eval: 8-10 Q/A pairs with known answers, report accuracy.
 **Effort:** ~1.5 days.
 
-## Phase 1b - Agent Visibility ("Agent Trace")  (PROVE it's an agent, not a pipeline)
+## Phase 1b - Agent Visibility ("Agent Trace")  [DONE 2026-08-24, shipped with Phase 1]  (PROVE it's an agent, not a pipeline)
 **Why:** The word "agent" must be *shown*, not claimed. A judge should watch it reason. This is the
 single component that removes "it's just a pipeline with LLM verification" for good.
 **Principle:** the trace is REAL - it renders the actual backend steps, never a scripted animation.

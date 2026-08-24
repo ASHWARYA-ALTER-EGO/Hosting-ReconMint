@@ -1,5 +1,6 @@
-import React, { useState, useRef } from "react";
-import Folder from "C:\Users\Hp\Downloads\razorpay hackathon\reconmint\frontend\src\components;
+import React, { useState, useRef, useEffect } from "react";
+import Folder from "../components/Folder.jsx";
+import AgentTrace from "../components/AgentTrace.jsx";
 
 const SLOTS = [
   { id: "orders", name: "Orders", icon: "fa-solid fa-cart-shopping", color: "blue", key: "order" },
@@ -36,11 +37,28 @@ function assignFiles(fileList) {
   return files;
 }
 
-export default function UploadPage({ onRunDemo, onRunUpload, showToast }) {
+export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDashboard }) {
   const [files, setFiles] = useState({ orders: null, settlement: null, bank: null });
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false); // false | "demo" | "upload"
+  const [runResult, setRunResult] = useState(null); // the reconcile response (with trace)
+  const [revealed, setRevealed] = useState(0);
   const inputRef = useRef(null);
+
+  // Live "thinking engine": replay the REAL reconcile stages one by one (real latencies shown,
+  // reveal paced so a human can watch the agent work). Not a fake animation - real trace data.
+  useEffect(() => {
+    if (!runResult) return;
+    const n = (runResult.trace || []).length;
+    setRevealed(0);
+    let i = 0;
+    const id = setInterval(() => {
+      i += 1;
+      setRevealed(i);
+      if (i >= n) clearInterval(id);
+    }, 420);
+    return () => clearInterval(id);
+  }, [runResult]);
 
   const chosen = SLOTS.map((s) => ({ ...s, file: files[s.id] })).filter((s) => s.file);
   const allThree = chosen.length === 3;
@@ -61,7 +79,8 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast }) {
     }
     setBusy("upload");
     try {
-      await onRunUpload({ orders: files.orders, settlement: files.settlement, bank: files.bank }, false);
+      const resp = await onRunUpload({ orders: files.orders, settlement: files.settlement, bank: files.bank }, false);
+      setRunResult(resp);
     } catch (err) {
       setError({ title: "Validation Errors", items: [String(err.message)] });
       showToast(String(err.message), "error");
@@ -74,9 +93,11 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast }) {
     setError(null);
     setBusy("demo");
     try {
-      await onRunDemo(false);
+      const resp = await onRunDemo(false);
+      setRunResult(resp);
     } catch (err) {
       showToast(String(err.message), "error");
+    } finally {
       setBusy(false);
     }
   };
@@ -234,16 +255,61 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast }) {
           </div>
         )}
 
-        {/* busy panel */}
-        {busy && (
+        {/* dispatching (network) spinner - brief, before the trace arrives */}
+        {busy && !runResult && (
           <div className="bg-white border border-slate-100 rounded-2xl p-8 premium-shadow flex items-center gap-5">
             <div className="w-10 h-10 rounded-full border-2 border-slate-900 border-t-transparent animate-spin"></div>
             <div>
-              <div className="text-sm font-semibold text-slate-800">Running matching engine…</div>
-              <div className="text-xs text-slate-500 mt-1">Ingest → fee reconstruction → exact → fuzzy → triage. You'll land on the dashboard when done.</div>
+              <div className="text-sm font-semibold text-slate-800">Dispatching the reconciliation agent…</div>
+              <div className="text-xs text-slate-500 mt-1">Plan → match → fuzzy → triage → verify.</div>
             </div>
           </div>
         )}
+
+        {/* LIVE agent "thinking" engine - replays the real reconcile trace */}
+        {runResult && (() => {
+          const full = runResult.trace || [];
+          const done = revealed >= full.length;
+          const shown = full.slice(0, revealed);
+          const displaySteps = done
+            ? full
+            : [...shown, { ...(full[revealed] || {}), status: "running", ms: null }];
+          const m = runResult.meta;
+          return (
+            <div className="bg-white border border-slate-100 rounded-2xl p-8 premium-shadow">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center">
+                    <i className={`fa-solid ${done ? "fa-circle-check" : "fa-microchip"}`}></i>
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">
+                      Reconciliation agent {done ? "· complete" : "· working"}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {done
+                        ? `${m.settlement_active} records reconciled in ${m.elapsed_seconds}s · ${m.exceptions_total} exceptions`
+                        : "Autonomous: plan → match → fuzzy → triage → verify"}
+                    </div>
+                  </div>
+                </div>
+                {done && (
+                  <button onClick={onGoDashboard}
+                    className="gradient-btn text-white px-6 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2">
+                    View dashboard <i className="fa-solid fa-arrow-right"></i>
+                  </button>
+                )}
+              </div>
+              <AgentTrace trace={displaySteps} label="Live reconciliation trace" />
+              {done && (
+                <div className="mt-5 flex items-center gap-2 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 w-fit">
+                  <i className="fa-solid fa-shield-halved"></i>
+                  Every stage deterministic and audited — {runResult.decisions_logged} decisions logged.
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

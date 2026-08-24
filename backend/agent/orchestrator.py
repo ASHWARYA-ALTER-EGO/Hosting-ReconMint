@@ -116,19 +116,40 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
     verified before being trusted; `max_llm_calls` caps spend. AUTO_RESOLVE rows never call the LLM.
     """
     run_id = uuid.uuid4().hex[:12]
+    trace: list[dict] = []
 
+    def stage(title: str, detail: str, secs: float, extra: dict | None = None) -> None:
+        s = {"title": title, "detail": detail, "ms": round(secs * 1000, 1), "status": "done"}
+        if extra:
+            s.update(extra)
+        trace.append(s)
+
+    # ---- ingest + validate ----
+    ts = time.perf_counter()
     inputs = load_inputs(data_dir)
-
-    # fail fast with a friendly message rather than a deep pandas error
     report = validate_inputs(inputs.orders, inputs.settlement, inputs.bank)
     if not report.ok:
         raise InputValidationError("; ".join(report.errors))
-
     total_records = sum(inputs.counts.values())
+    stage("Ingested & validated", f"{total_records} rows across 3 sources, schema checked",
+          time.perf_counter() - ts, {"via": "rules"})
 
     t0 = time.perf_counter()
+
+    # ---- exact match (incl. fee reconstruction) ----
+    ts = time.perf_counter()
     result = exact_match(inputs)
+    stage("Reconstructed fees + exact match",
+          f"{result.stats['matched_exact']} matched on UTR + paise-exact amount",
+          time.perf_counter() - ts, {"via": "deterministic"})
+
+    # ---- fuzzy recovery ----
+    ts = time.perf_counter()
     result = fuzzy_match(result, inputs)
+    stage("Fuzzy recovery",
+          f"{result.stats['matched_fuzzy']} near-misses recovered (T+2 timing, UTR typos)",
+          time.perf_counter() - ts, {"via": "deterministic"})
+
     elapsed = time.perf_counter() - t0
 
     decisions: list[dict] = []
@@ -138,6 +159,7 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
     llm_cost_total = 0.0
     llm_verified_count = 0
 
+    ts_triage = time.perf_counter()
     # ---- 1. triage settlement records (each visited once) ----
     for _, row in result.settlement.iterrows():
         action, human, reason, explanation = triage_settlement(row)
@@ -221,6 +243,10 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
                            "Genuinely unresolvable from the given data; escalated to a human.",
         })
 
+    stage("Triaged exceptions",
+          f"{exceptions} flagged, routed to auto-resolve / explain / escalate",
+          time.perf_counter() - ts_triage, {"via": "rules"})
+
     stats = result.stats
     meta = {
         "dataset_size": total_records,
@@ -239,8 +265,11 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
     }
 
     if persist:
+        ts = time.perf_counter()
         audit = AuditLog()
         audit.start_run(run_id, meta)
         audit.log_decisions(run_id, decisions)
+        stage("Verified & logged", f"{len(decisions)} decisions written to the audit trail",
+              time.perf_counter() - ts, {"via": "rules"})
 
-    return {"run_id": run_id, "meta": meta, "decisions_logged": len(decisions)}
+    return {"run_id": run_id, "meta": meta, "decisions_logged": len(decisions), "trace": trace}

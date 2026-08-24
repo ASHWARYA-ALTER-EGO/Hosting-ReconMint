@@ -50,6 +50,7 @@ class ReconcileResponse(BaseModel):
     meta: RunMeta
     severity_counts: SeverityCounts
     decisions_logged: int
+    trace: list[dict] = []
 
 
 class ExceptionItem(BaseModel):

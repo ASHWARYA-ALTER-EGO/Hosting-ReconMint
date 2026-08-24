@@ -184,7 +184,12 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
     <div className="flex flex-col h-full overflow-hidden bg-slate-50">
       <header className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Reconciliation Overview</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-slate-900">Reconciliation Overview</h1>
+            <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-900 text-white px-2 py-1 rounded flex items-center gap-1">
+              <i className="fa-solid fa-microchip"></i> Autonomous agent
+            </span>
+          </div>
           <div className="flex items-center text-xs text-slate-500 mt-1 gap-2 flex-wrap">
             {run.isDemo && <><span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-sm">Demo run (synthetic data)</span><span>•</span></>}
             <span>Run ID: {run.runId}</span>

@@ -201,6 +201,7 @@ def reconcile_upload(
         meta=_run_meta(run_id, summary["meta"]),
         severity_counts=_severity_counts(run_id),
         decisions_logged=summary["decisions_logged"],
+        trace=summary.get("trace", []),
     )
 
 
@@ -219,6 +220,7 @@ def reconcile_demo(use_llm: bool = Form(False), max_llm_calls: int = Form(0)) ->
         meta=_run_meta(run_id, summary["meta"]),
         severity_counts=_severity_counts(run_id),
         decisions_logged=summary["decisions_logged"],
+        trace=summary.get("trace", []),
     )
 
 

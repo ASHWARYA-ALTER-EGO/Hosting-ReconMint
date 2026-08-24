@@ -41,6 +41,7 @@ eval harness scores against it.
 - [x] Day 7 — LLM exception explainer + hallucination verifier (grounded explanations, model-switchable, verifier rejects fabricated figures, ~$0.00007/call)
 - [x] Day 8a — FastAPI layer (/health, /reconcile, /reconcile/demo, /runs/{id}, /exceptions, /audit-export; Pydantic models; friendly errors; severity counts) — see FRONTEND_SPEC.md
 - [x] Day 8b — React app (Vite): Upload + Dashboard + Exceptions integrated, wired to the live API, real numbers, on-demand AI explanations, verified in-browser
+- [x] Phase 1 — Settlement Q&A agent (`/ask`): structured-intent routing + deterministic compute + verifier-gated phrasing + live Agent Trace; 10/10 routing, 10/10 grounded (2nd named direction covered)
 - [ ] Day 9 — Razorpay test-key schema validation + polish
 
 ## Performance (make bench)
