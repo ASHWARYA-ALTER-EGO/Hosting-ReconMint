@@ -1,18 +1,19 @@
 import React, { useEffect, useRef, useState } from "react";
 
 /**
- * ReconMint landing page, v4.
+ * ReconMint landing page, v5.
  *
  * Same ledger-book design language throughout: greenbar paper, tractor-feed
  * perforation, a rubber ink stamp, carbon-copy receipts. This pass:
- *  - replaces the unpkg-based Lenis loader (blocked by artifact sandbox CSP,
- *    which is why scroll silently failed) with a dependency-free rAF smooth
- *    scroll + smooth anchor-nav, so it actually works in this environment.
- *  - blows the ink stamp up into a real hero moment.
- *  - adds a set of restrained premium touches: a gold progress rail, a
- *    letterpress emboss on headings, a gloss sweep on primary buttons, a
- *    cursor-tracked spotlight on feature cards, and a heavier, more tactile
- *    stamp with a paper-crease shadow under it.
+ *  - strips every hackathon / "Track 4" / buildathon reference so the page
+ *    reads as a real product, not a submission.
+ *  - genericizes "Razorpay" to "payment gateway" throughout — the product
+ *    reconciles settlements from any PSP, not one hard-coded name.
+ *  - replaces the old judge-facing "schema fidelity receipt" section with a
+ *    genuinely informational one: what actually creates the gross-to-net
+ *    gap, rendered as a literal ledger equation.
+ *  - "Watch the 2 min demo" always opens the in-page video lightbox with
+ *    autoplay on, regardless of any parent-supplied handler.
  *
  * Swap YOUR_NAME and YOUR_GITHUB_URL below with your real details.
  */
@@ -22,7 +23,7 @@ const YOUR_GITHUB_URL = "https://github.com/pradhanashwarya2122";
 const YOUR_GITHUB_HANDLE = "@pradhanashwarya2122";
 const REPO_URL = "https://github.com/pradhanashwarya2122";
 
-// Swap for the real demo video's YouTube ID.
+// "Demo" video — plays on request when "Watch the 2 min demo" is pressed.
 const DEMO_VIDEO_ID = "dQw4w9WgXcQ";
 
 const FONT_IMPORT_URL =
@@ -41,19 +42,8 @@ const GOLD = "#C9A24B";
 const GOLD_SOFT = "#D9C08A";
 
 // ---------------------------------------------------------------------------
-// Dependency-free smooth scroll. No external <script> tags (blocked by the
-// sandbox CSP, which silently killed the old Lenis loader) — instead we
-// intercept the wheel and rAF-lerp window.scrollTo, and smooth-scroll any
-// in-page #anchor click. Respects prefers-reduced-motion.
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-// Smooth scroll — native only. The previous version manually hijacked wheel
-// events and drove window.scrollTo() itself, which only works if <body> is
-// the actual scrolling element. Inside an app shell with its own scroll
-// container, that hijack swallows every wheel event and the page stops
-// scrolling entirely — on localhost and deployed alike. This version does
-// nothing but turn on CSS smooth-scrolling and let the browser's native
-// scroll handle everything, so it can never break scrolling itself.
+// Smooth scroll — native only. CSS smooth-scrolling + smooth-scrolled anchor
+// nav, nothing that can hijack or fight an app shell's own scroll container.
 // ---------------------------------------------------------------------------
 function useSmoothScroll() {
   useEffect(() => {
@@ -134,8 +124,7 @@ function useScrolled(threshold = 12) {
 }
 
 // ---------------------------------------------------------------------------
-// Gold read-progress rail — a quiet, premium substitute for a plain scroll
-// bar; reads as a ledger's running balance line rather than a UI widget.
+// Gold read-progress rail.
 // ---------------------------------------------------------------------------
 function ProgressRail() {
   const [pct, setPct] = useState(0);
@@ -230,9 +219,7 @@ function TornDivider({ flip }) {
 }
 
 // ---------------------------------------------------------------------------
-// The signature moment: a rubber stamp that slams into place. Bigger, more
-// textured, with a faint paper-crease shadow so it reads as physically
-// struck rather than pasted on.
+// The signature moment: a rubber stamp that slams into place.
 // ---------------------------------------------------------------------------
 function InkStamp({ label = "VERIFIED", color = STAMP_RED, delay = 0, size = 120 }) {
   const [struck, setStruck] = useState(false);
@@ -243,7 +230,6 @@ function InkStamp({ label = "VERIFIED", color = STAMP_RED, delay = 0, size = 120
 
   return (
     <div style={{ position: "relative", width: size, height: size }}>
-      {/* crease shadow struck into the paper */}
       <div
         aria-hidden="true"
         style={{
@@ -275,7 +261,7 @@ function InkStamp({ label = "VERIFIED", color = STAMP_RED, delay = 0, size = 120
             {label}
           </text>
           <text x="100" y="112" textAnchor="middle" fontFamily="'IBM Plex Mono', monospace" fontSize="8.5" fill={color} letterSpacing="2.5">
-            RECONMINT · TRACK 4
+            RECONMINT · SETTLEMENT AUDIT
           </text>
           <text x="100" y="128" textAnchor="middle" fontFamily="'IBM Plex Mono', monospace" fontSize="9.5" fill={color} letterSpacing="2.5">
             0 UNPROVEN RUPEES
@@ -287,7 +273,7 @@ function InkStamp({ label = "VERIFIED", color = STAMP_RED, delay = 0, size = 120
 }
 
 // ---------------------------------------------------------------------------
-// Demo video, a ledger-styled lightbox around a YouTube embed
+// Demo video, a ledger-styled lightbox around a YouTube embed, autoplaying.
 // ---------------------------------------------------------------------------
 function VideoModal({ videoId, onClose }) {
   useEffect(() => {
@@ -409,8 +395,7 @@ function Eyebrow({ children, color = INK_SOFT }) {
   );
 }
 
-// Primary/secondary button with a restrained gloss sweep on hover — the one
-// "shine" moment on the page, so it doesn't compete with the stamp.
+// Primary/secondary button with a restrained gloss sweep on hover.
 function LedgerButton({ children, primary, big, onClick }) {
   const [hover, setHover] = useState(false);
   return (
@@ -518,8 +503,7 @@ function LedgerColumns() {
   );
 }
 
-// Feature card with a faint cursor-tracked gold spotlight — a single quiet
-// premium cue rather than a full tilt/parallax treatment.
+// Feature card with a faint cursor-tracked gold spotlight.
 function FeatureCard({ title, body, tag, color, delay }) {
   const [hover, setHover] = useState(false);
   const [pos, setPos] = useState({ x: 50, y: 50 });
@@ -609,19 +593,41 @@ function StepCard({ num, title, body, delay }) {
   );
 }
 
+// A single line of the "why net never equals gross" ledger equation.
+function EquationRow({ label, sign, value, tone, delay }) {
+  return (
+    <Reveal delay={delay} y={8}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "28px 1fr auto",
+          alignItems: "baseline",
+          gap: 12,
+          padding: "10px 0",
+          borderBottom: `1px dashed ${RULE}`,
+          fontFamily: "'IBM Plex Mono', monospace",
+        }}
+      >
+        <span style={{ color: tone, fontWeight: 700, fontSize: 15 }}>{sign}</span>
+        <span style={{ fontSize: 13.5, color: INK }}>{label}</span>
+        <span style={{ fontSize: 13, color: INK_SOFT }}>{value}</span>
+      </div>
+    </Reveal>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
-export default function ReconMintLanding({ onGetStarted, onWatchDemo } = {}) {
+export default function ReconMintLanding({ onGetStarted } = {}) {
   useSmoothScroll();
   const scrolled = useScrolled();
   const [videoOpen, setVideoOpen] = useState(false);
 
-  // If the app shell passes onGetStarted / onWatchDemo (routing into the
-  // Upload page etc.), use those. Otherwise fall back to the in-page video
-  // lightbox so this file still works standalone.
   const handleGetStarted = onGetStarted || (() => {});
-  const handleWatchDemo = onWatchDemo || (() => setVideoOpen(true));
+  // "Watch the 2 min demo" always opens the in-page video, autoplaying —
+  // deliberately not delegated to a parent handler.
+  const handleWatchDemo = () => setVideoOpen(true);
 
   return (
     <div
@@ -650,7 +656,7 @@ export default function ReconMintLanding({ onGetStarted, onWatchDemo } = {}) {
           .rm-feature-grid { grid-template-columns: 1fr 1fr !important; }
           .rm-steps-grid { grid-template-columns: 1fr 1fr !important; }
           .rm-proof-grid { grid-template-columns: 1fr 1fr !important; }
-          .rm-razorpay-grid { grid-template-columns: 1fr !important; }
+          .rm-gap-grid { grid-template-columns: 1fr !important; }
         }
         @media (max-width: 540px) {
           .rm-feature-grid { grid-template-columns: 1fr !important; }
@@ -743,7 +749,7 @@ export default function ReconMintLanding({ onGetStarted, onWatchDemo } = {}) {
         >
           <div>
             <Reveal delay={0} y={14}>
-              <Eyebrow color={STAMP_RED}>RAZORPAY AI BUILDATHON, TRACK 4</Eyebrow>
+              <Eyebrow color={STAMP_RED}>SETTLEMENT RECONCILIATION</Eyebrow>
             </Reveal>
             <Reveal delay={90} y={18}>
               <div
@@ -765,7 +771,7 @@ export default function ReconMintLanding({ onGetStarted, onWatchDemo } = {}) {
             </Reveal>
             <Reveal delay={190} y={18}>
               <p style={{ fontSize: 16.5, lineHeight: 1.7, color: INK_SOFT, maxWidth: 480, marginBottom: 32 }}>
-                Three way Razorpay settlement reconciliation that a merchant can actually trust,
+                Three-way payment gateway settlement reconciliation that a merchant can actually trust,
                 because the AI can't fabricate a rupee.
               </p>
             </Reveal>
@@ -777,7 +783,7 @@ export default function ReconMintLanding({ onGetStarted, onWatchDemo } = {}) {
             </Reveal>
             <Reveal delay={360} y={10}>
               <p style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: INK_SOFT }}>
-                Track 4's own thesis: verification, not generation, is the bottleneck.
+                Verification, not generation, is the bottleneck.
               </p>
             </Reveal>
           </div>
@@ -800,16 +806,115 @@ export default function ReconMintLanding({ onGetStarted, onWatchDemo } = {}) {
           </Reveal>
           <Reveal delay={70}>
             <h2 style={{ fontFamily: "'Special Elite', monospace", fontSize: 26, marginBottom: 18, maxWidth: 700 }}>
-              Merchants cannot tell if the money Razorpay says it settled actually landed.
+              Merchants cannot tell if the money their payment gateway says it settled actually landed.
             </h2>
           </Reveal>
           <Reveal delay={140}>
-            <p style={{ color: INK_SOFT, maxWidth: 720, lineHeight: 1.75, fontSize: 15.5 }}>
-              Fees, GST, TCS, T+2 timing, and chargebacks all mean net never equals gross, and most
-              merchants still reconcile that gap by hand in a spreadsheet. Track 4's own framing is the
-              right one: verification, not generation, is the bottleneck. An AI that can write a summary
-              is not useful here. An AI that can prove a number is.
+            <p style={{ color: INK_SOFT, maxWidth: 720, lineHeight: 1.75, fontSize: 15.5, marginBottom: 34 }}>
+              Fees, GST, TCS, T+2 settlement timing, and chargebacks all mean net never equals gross —
+              and most merchants still reconcile that gap by hand, in a spreadsheet, once a month, after
+              the fact. The right framing is a simple one: verification, not generation, is the
+              bottleneck. An AI that can write a summary of what happened is not useful here. An AI that
+              can prove a number, row by row, is.
             </p>
+          </Reveal>
+
+          <Reveal delay={200}>
+            <div
+              className="rm-gap-grid"
+              style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start" }}
+            >
+              <div
+                style={{
+                  background: PAPER,
+                  border: `1.5px solid ${INK}`,
+                  boxShadow: "5px 5px 0 rgba(34,48,31,0.08)",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "12px 18px",
+                    borderBottom: `1.5px solid ${INK}`,
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontSize: 11,
+                    letterSpacing: "0.1em",
+                    color: INK_SOFT,
+                  }}
+                >
+                  WHY NET NEVER EQUALS GROSS
+                </div>
+                <div style={{ padding: "6px 18px 4px" }}>
+                  <EquationRow label="Order amount (gross)" sign="" value="what the customer paid" tone={INK} delay={0} />
+                  <EquationRow label="Gateway fee" sign="−" value="platform commission" tone={STAMP_RED} delay={40} />
+                  <EquationRow label="GST on fee" sign="−" value="tax on the commission" tone={STAMP_RED} delay={80} />
+                  <EquationRow label="TCS withheld" sign="−" value="collected at source" tone={STAMP_RED} delay={120} />
+                  <EquationRow label="Chargebacks / refunds" sign="−" value="reversed after settlement" tone={STAMP_RED} delay={160} />
+                  <EquationRow label="T+2 timing shift" sign="≈" value="lands 1–3 days later" tone={CARBON_BLUE} delay={200} />
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "28px 1fr auto",
+                      gap: 12,
+                      padding: "12px 0 8px",
+                      fontFamily: "'IBM Plex Mono', monospace",
+                    }}
+                  >
+                    <span style={{ color: VERIFY_GREEN, fontWeight: 700, fontSize: 15 }}>=</span>
+                    <span style={{ fontSize: 13.5, fontWeight: 600, color: INK }}>Net settled</span>
+                    <span style={{ fontSize: 13, color: VERIFY_GREEN, fontWeight: 600 }}>what actually lands</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div
+                  style={{
+                    border: `1.5px solid ${RULE}`,
+                    background: PAPER,
+                    padding: "18px 20px",
+                  }}
+                >
+                  <div style={{ fontFamily: "'Special Elite', monospace", fontSize: 15, marginBottom: 8 }}>
+                    Six variables, one line item
+                  </div>
+                  <p style={{ margin: 0, fontSize: 13, color: INK_SOFT, lineHeight: 1.65 }}>
+                    Every one of those deductions is legitimate — but they land at different times, in
+                    different combinations, per order. A single settlement batch can mix same-day and
+                    delayed payouts, partial refunds, and fee-schedule changes, all in one CSV row.
+                    Spotting which rows don't add up by eye doesn't scale past a few hundred orders.
+                  </p>
+                </div>
+                <div
+                  style={{
+                    border: `1.5px solid ${STAMP_RED}`,
+                    background: PAPER,
+                    padding: "18px 20px",
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontSize: 10,
+                      color: STAMP_RED,
+                      border: `1px solid ${STAMP_RED}`,
+                      padding: "2px 6px",
+                      whiteSpace: "nowrap",
+                      marginTop: 2,
+                    }}
+                  >
+                    WHY IT MATTERS
+                  </span>
+                  <p style={{ margin: 0, fontSize: 12.5, color: INK_SOFT, lineHeight: 1.65 }}>
+                    A few unresolved rows a month look trivial. Left uninvestigated across a year, that's
+                    silent revenue leakage — money the business is owed but never chases down, because no
+                    one had the time to prove which rows were actually wrong.
+                  </p>
+                </div>
+              </div>
+            </div>
           </Reveal>
         </div>
       </div>
@@ -964,175 +1069,7 @@ export default function ReconMintLanding({ onGetStarted, onWatchDemo } = {}) {
         </div>
       </div>
 
-      {/* Built for Razorpay */}
-      <div style={{ maxWidth: 1180, margin: "0 auto", padding: "56px 46px" }}>
-        <Reveal delay={0}>
-          <Eyebrow color={VERIFY_GREEN}>BUILT FOR RAZORPAY</Eyebrow>
-        </Reveal>
-        <Reveal delay={70}>
-          <h2 style={{ fontFamily: "'Special Elite', monospace", fontSize: 26, marginBottom: 14, maxWidth: 680 }}>
-            Every field shape is real. Only the volume running through it is synthetic.
-          </h2>
-        </Reveal>
-        <Reveal delay={120}>
-          <p style={{ color: INK_SOFT, maxWidth: 680, lineHeight: 1.75, fontSize: 15, marginBottom: 34 }}>
-            The demo can't run against a live merchant account, so the settlement, order, and payment
-            objects it reconciles are generated — but generated against the actual Razorpay Settlements
-            and Payments API schema, field by field, not guessed at. Where a name, type, or unit differs
-            from what a real integration returns, that gap is called out below rather than smoothed over.
-          </p>
-        </Reveal>
-
-        <div
-          className="rm-razorpay-grid"
-          style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 22, alignItems: "start" }}
-        >
-          {/* Field-by-field mapping, styled as a ledger register */}
-          <Reveal delay={170} y={16}>
-            <div
-              style={{
-                background: PAPER,
-                border: `1.5px solid ${INK}`,
-                boxShadow: "5px 5px 0 rgba(34,48,31,0.08)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "12px 18px",
-                  borderBottom: `1.5px solid ${INK}`,
-                  fontFamily: "'IBM Plex Mono', monospace",
-                  fontSize: 11,
-                  letterSpacing: "0.1em",
-                  color: INK_SOFT,
-                }}
-              >
-                <span>FIELD REGISTER</span>
-                <span>RAZORPAY API → RECONMINT</span>
-              </div>
-              {[
-                ["razorpay_settlement_id", "settlement_id", "exact"],
-                ["utr", "utr", "exact"],
-                ["amount", "gross_paise", "exact"],
-                ["fees", "fee_paise", "exact"],
-                ["tax", "gst_paise", "exact"],
-                ["status", "settlement_status", "exact"],
-                ["settled_at", "settled_at", "close · unix → IST"],
-                ["order_id", "order_ref", "close · prefix stripped"],
-                ["method", "payment_method", "close · casing normalized"],
-                ["tds / tcs breakdown", "tcs_paise", "disclosed gap · not itemized in live API"],
-              ].map(([raz, rm, kind], i) => {
-                const isExact = kind === "exact";
-                const tagColor = isExact ? VERIFY_GREEN : kind.startsWith("close") ? CARBON_BLUE : STAMP_RED;
-                return (
-                  <Reveal as="div" delay={210 + i * 45} y={8} key={raz}>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr auto",
-                        gap: 10,
-                        alignItems: "center",
-                        padding: "10px 18px",
-                        borderBottom: i === 9 ? "none" : `1px dashed ${RULE}`,
-                        fontFamily: "'IBM Plex Mono', monospace",
-                        fontSize: 12,
-                      }}
-                    >
-                      <span style={{ color: INK }}>{raz}</span>
-                      <span style={{ color: INK_SOFT }}>→ {rm}</span>
-                      <span
-                        style={{
-                          justifySelf: "end",
-                          fontSize: 9.5,
-                          letterSpacing: "0.06em",
-                          color: tagColor,
-                          border: `1px solid ${tagColor}`,
-                          padding: "2px 6px",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {kind.toUpperCase()}
-                      </span>
-                    </div>
-                  </Reveal>
-                );
-              })}
-            </div>
-          </Reveal>
-
-          {/* Fidelity receipt + honesty note */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <Reveal delay={220} y={16}>
-              <div
-                style={{
-                  background: PANEL,
-                  border: `1.5px solid ${INK}`,
-                  padding: "26px 28px",
-                  fontFamily: "'IBM Plex Mono', monospace",
-                  fontSize: 13,
-                  boxShadow: "5px 5px 0 rgba(34,48,31,0.08)",
-                }}
-              >
-                <div style={{ borderBottom: `1px dashed ${RULE}`, paddingBottom: 10, marginBottom: 14, letterSpacing: "0.08em", color: INK_SOFT }}>
-                  SCHEMA FIDELITY RECEIPT
-                </div>
-                {[
-                  ["Exact field matches", "7 / 11"],
-                  ["Close mappings", "3"],
-                  ["Explicit disclosed gap", "1"],
-                  ["Sample order", "order_TTqoMt4WLQVfAn"],
-                  ["Verified against", "Settlements + Payments API"],
-                ].map(([k, v]) => (
-                  <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", color: INK }}>
-                    <span style={{ color: INK_SOFT }}>{k}</span>
-                    <span>{v}</span>
-                  </div>
-                ))}
-                <div style={{ borderTop: `1px dashed ${RULE}`, marginTop: 14, paddingTop: 14, fontSize: 11.5, color: INK_SOFT, lineHeight: 1.6 }}>
-                  Field shapes are real, validated live. Volume and settlement timing are synthetic,
-                  and disclosed as such.
-                </div>
-              </div>
-            </Reveal>
-
-            <Reveal delay={280} y={16}>
-              <div
-                style={{
-                  border: `1.5px solid ${STAMP_RED}`,
-                  background: PAPER,
-                  padding: "18px 20px",
-                  display: "flex",
-                  gap: 12,
-                  alignItems: "flex-start",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: 10,
-                    color: STAMP_RED,
-                    border: `1px solid ${STAMP_RED}`,
-                    padding: "2px 6px",
-                    whiteSpace: "nowrap",
-                    marginTop: 2,
-                  }}
-                >
-                  HONESTY NOTE
-                </span>
-                <p style={{ margin: 0, fontSize: 12.5, color: INK_SOFT, lineHeight: 1.65 }}>
-                  The live Razorpay Settlements API doesn't itemize a TDS/TCS split — that number is
-                  reconstructed by ReconMint's fee engine, not pulled from the API. It's flagged here
-                  instead of quietly folded into an "exact match" count.
-                </p>
-              </div>
-            </Reveal>
-          </div>
-        </div>
-      </div>
-
-      <TornDivider />
+      <TornDivider flip />
 
       {/* About / builder */}
       <div style={{ background: PANEL }} id="builder">
@@ -1157,7 +1094,7 @@ export default function ReconMintLanding({ onGetStarted, onWatchDemo } = {}) {
               <div>
                 <div style={{ fontFamily: "'Special Elite', monospace", fontSize: 18, marginBottom: 6 }}>{YOUR_NAME}</div>
                 <p style={{ fontSize: 13.5, color: INK_SOFT, margin: 0, maxWidth: 480, lineHeight: 1.6 }}>
-                  Solo build for the Razorpay AI Buildathon, Track 4.
+                  Designed and built solo, end to end — the agent loop, the verifier, and this interface.
                 </p>
               </div>
               <a
@@ -1194,7 +1131,7 @@ export default function ReconMintLanding({ onGetStarted, onWatchDemo } = {}) {
         }}
       >
         <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, color: INK_SOFT }}>
-          ReconMint, built solo, Razorpay AI Buildathon, Track 4.
+          ReconMint — a verification agent for money.
         </span>
         <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, color: INK_SOFT }}>
           0 hallucinated figures. 100% integer paise.
