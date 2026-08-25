@@ -46,46 +46,19 @@ const GOLD_SOFT = "#D9C08A";
 // intercept the wheel and rAF-lerp window.scrollTo, and smooth-scroll any
 // in-page #anchor click. Respects prefers-reduced-motion.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Smooth scroll — native only. The previous version manually hijacked wheel
+// events and drove window.scrollTo() itself, which only works if <body> is
+// the actual scrolling element. Inside an app shell with its own scroll
+// container, that hijack swallows every wheel event and the page stops
+// scrolling entirely — on localhost and deployed alike. This version does
+// nothing but turn on CSS smooth-scrolling and let the browser's native
+// scroll handle everything, so it can never break scrolling itself.
+// ---------------------------------------------------------------------------
 function useSmoothScroll() {
-  // Most CRA/Vite boilerplates set html/body/#root to height:100% with
-  // overflow:hidden so their own SPA shell can scroll an inner container
-  // instead. That silently caps window scroll at zero on localhost even
-  // though this component itself is fine — this forces the page's own
-  // scroll chain back on for every ancestor up to <html>.
   useEffect(() => {
-    const styleTag = document.createElement("style");
-    styleTag.setAttribute("data-reconmint-scroll-fix", "");
-    styleTag.textContent = `
-      html, body { height: auto !important; min-height: 100%; overflow-y: auto !important; overflow-x: hidden; }
-      #root, #__next { min-height: 100%; overflow: visible !important; height: auto !important; }
-    `;
-    document.head.appendChild(styleTag);
-    return () => styleTag.remove();
-  }, []);
-
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    let current = window.scrollY;
-    let target = window.scrollY;
-    let raf = null;
-    const ease = 0.09;
-    const maxScroll = () =>
-      Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-
-    function onWheel(e) {
-      // let horizontal-only gestures and pinch-zoom pass through untouched
-      if (e.ctrlKey) return;
-      e.preventDefault();
-      target = Math.min(maxScroll(), Math.max(0, target + e.deltaY));
-    }
-
-    function loop() {
-      current += (target - current) * ease;
-      if (Math.abs(target - current) < 0.4) current = target;
-      window.scrollTo(0, current);
-      raf = requestAnimationFrame(loop);
-    }
+    const prevHtml = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = "smooth";
 
     function onAnchorClick(e) {
       const a = e.target.closest('a[href^="#"]');
@@ -94,31 +67,13 @@ function useSmoothScroll() {
       const el = document.getElementById(id);
       if (!el) return;
       e.preventDefault();
-      target = Math.min(
-        maxScroll(),
-        Math.max(0, el.getBoundingClientRect().top + window.scrollY - 84)
-      );
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-
-    // keep the lerp target honest if the browser scrolls us directly
-    // (scrollbar drag, keyboard, touch)
-    function onNativeScroll() {
-      if (Math.abs(window.scrollY - current) > 90) {
-        current = window.scrollY;
-        target = window.scrollY;
-      }
-    }
-
-    window.addEventListener("wheel", onWheel, { passive: false });
     document.addEventListener("click", onAnchorClick);
-    window.addEventListener("scroll", onNativeScroll, { passive: true });
-    raf = requestAnimationFrame(loop);
 
     return () => {
-      window.removeEventListener("wheel", onWheel);
+      document.documentElement.style.scrollBehavior = prevHtml;
       document.removeEventListener("click", onAnchorClick);
-      window.removeEventListener("scroll", onNativeScroll);
-      if (raf) cancelAnimationFrame(raf);
     };
   }, []);
 }
