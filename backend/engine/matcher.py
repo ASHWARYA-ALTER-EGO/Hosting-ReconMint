@@ -219,6 +219,14 @@ def _finalize(active: pd.DataFrame, duplicates: pd.DataFrame, bank: pd.DataFrame
     recon_mask = active["resolution"].isin([RECONCILED_CLEAN, RECONCILED_FEE])
     reconciled_amount_paise = int(active.loc[recon_mask, "reported_net_paise"].sum())
 
+    fee_totals_paise = {
+        "mdr": int(active["mdr_paise"].sum()),
+        "gst": int(active["gst_paise"].sum()),
+        "tcs": int(active["tcs_paise"].sum()),
+        "refund": int(active["refund_paise"].sum()),
+        "gross": int(active["gross_paise"].sum()),
+    }
+
     matched_conf = active.loc[active["confidence"] > 0, "confidence"]
     avg_conf = round(float(matched_conf.mean()), 4) if len(matched_conf) else 0.0
     fuzzy_conf = active.loc[active["match_status"] == MATCHED_FUZZY, "confidence"]
@@ -238,6 +246,7 @@ def _finalize(active: pd.DataFrame, duplicates: pd.DataFrame, bank: pd.DataFrame
         "reconciled_total": reconciled,
         "reconciled_rate_pct": round(100 * reconciled / total, 2) if total else 0.0,
         "reconciled_amount_paise": reconciled_amount_paise,
+        "fee_totals_paise": fee_totals_paise,
         # confidence
         "avg_confidence_matched": avg_conf,
         "avg_confidence_fuzzy": avg_fuzzy_conf,

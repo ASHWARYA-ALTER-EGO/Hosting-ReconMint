@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import * as api from "../api.js";
+import FeeWaterfall from "../components/FeeWaterfall.jsx";
+import SourceFilesCard from "../components/SourceFilesCard.jsx";
 
 const PAGE_SIZE = 8;
 
@@ -76,6 +78,8 @@ function Drawer({ item, onClose, onResolve, resolving, onExplain, explaining }) 
           </div>
         )}
 
+        {led && <div className="mb-6"><FeeWaterfall ledger={led} /></div>}
+
         <div className="bg-gradient-to-r from-emerald-50 to-green-50/50 border border-emerald-100/50 rounded-xl p-4 mb-6 flex items-start gap-3">
           <div className="bg-white rounded-full p-1.5 shadow-sm border border-emerald-100 mt-0.5"><i className="fa-solid fa-check text-emerald-500 text-[10px]"></i></div>
           <div>
@@ -129,6 +133,7 @@ export default function ExceptionsPage({ run, showToast, onGoUpload }) {
   const [selected, setSelected] = useState(null);
   const [resolving, setResolving] = useState(false);
   const [explaining, setExplaining] = useState(false);
+  const [showSource, setShowSource] = useState(false);
 
   const load = useCallback(async () => {
     if (!run) return;
@@ -190,16 +195,24 @@ export default function ExceptionsPage({ run, showToast, onGoUpload }) {
 
   return (
     <div className="flex h-full overflow-hidden" style={{ background: "radial-gradient(at 0% 0%, hsla(217,100%,97%,1) 0px, transparent 50%), radial-gradient(at 100% 0%, hsla(210,100%,97%,1) 0px, transparent 50%)" }}>
-      <div className="flex-1 flex flex-col min-w-0 px-8 py-8 overflow-hidden">
-        <header className="mb-6">
-          <div className="flex items-center space-x-3 mb-1">
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Exceptions</h1>
-            <span className="bg-red-50 text-red-600 border border-red-100 text-sm font-semibold px-3 py-1 rounded-full">{counts.all}</span>
+      <div className="flex-1 flex flex-col min-w-0 px-8 py-8 overflow-y-auto">
+        <header className="mb-6 flex justify-between items-start">
+          <div>
+            <div className="flex items-center space-x-3 mb-1">
+              <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Exceptions</h1>
+              <span className="bg-red-50 text-red-600 border border-red-100 text-sm font-semibold px-3 py-1 rounded-full">{counts.all}</span>
+            </div>
+            <p className="text-slate-500 text-sm font-medium">Unresolved records requiring review</p>
           </div>
-          <p className="text-slate-500 text-sm font-medium">Unresolved records requiring review</p>
+          <button onClick={() => setShowSource((s) => !s)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+              showSource ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
+            <i className="fa-solid fa-file-excel"></i>
+            {showSource ? "Hide source data" : "View source data"}
+          </button>
         </header>
 
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-sm border border-slate-100 flex-1 min-h-[440px] flex flex-col overflow-hidden">
           <div className="px-6 pt-5 pb-3 flex justify-between items-end border-b border-slate-100/60">
             <div className="flex space-x-6 text-sm">
               {[["All", counts.all], ["Critical", counts.critical], ["Warning", counts.warning], ["Info", counts.info]].map(([label, n]) => (
@@ -270,6 +283,13 @@ export default function ExceptionsPage({ run, showToast, onGoUpload }) {
             </div>
           </div>
         </div>
+
+        {showSource && (
+          <div className="mt-6">
+            <p className="text-xs text-slate-500 mb-3">Cross-reference an exception against the raw rows the agent reconciled. Use search to find a payment ID.</p>
+            <SourceFilesCard isDemo={run.isDemo} height={340} />
+          </div>
+        )}
       </div>
 
       {selected && <Drawer item={selected} onClose={() => setSelected(null)} onResolve={resolve} resolving={resolving} onExplain={explain} explaining={explaining} />}

@@ -29,7 +29,7 @@ import tempfile
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 
 from backend import config
 from backend.agent.audit import AuditLog, db_path
@@ -109,7 +109,7 @@ def _run_meta(run_id: str, extra: dict | None = None) -> RunMeta:
     if extra:
         data.update({k: extra[k] for k in
                      ("llm_calls", "llm_verified_count", "llm_cost_usd_total",
-                      "reconciled_amount_paise") if k in extra})
+                      "reconciled_amount_paise", "fee_totals_paise") if k in extra})
     return RunMeta(**data)
 
 
@@ -274,6 +274,18 @@ def ask(run_id: str = Form(...), question: str = Form(...)):
         return JSONResponse(status_code=404, content={"error": "not_found",
                                                       "detail": f"run {run_id} not found"})
     return qa_ask(run_id, question)
+
+
+@app.get("/data/source/{name}")
+def source_file(name: str):
+    """Serve a generated source CSV (orders / settlement / bank) so the UI can preview real run data."""
+    if name not in ("orders", "settlement", "bank"):
+        return JSONResponse(status_code=404, content={"error": "not_found", "detail": name})
+    path = os.path.join(DEFAULT_DATA_DIR, f"{name}.csv")
+    if not os.path.exists(path):
+        return JSONResponse(status_code=404, content={"error": "not_found",
+                                                      "detail": f"{name}.csv not generated yet"})
+    return FileResponse(path, media_type="text/csv", filename=f"{name}.csv")
 
 
 @app.get("/eval/demo")

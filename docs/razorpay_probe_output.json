@@ -1,0 +1,82 @@
+{
+  "orders": [
+    {
+      "amount": 50000,
+      "amount_due": 50000,
+      "amount_paid": 0,
+      "attempts": 0,
+      "created_at": 1787627757,
+      "currency": "INR",
+      "entity": "order",
+      "id": "order_TTqoMt4WLQVfAn",
+      "notes": {
+        "purpose": "ReconMint schema validation"
+      },
+      "offer_id": null,
+      "receipt": "reconmint_probe_1",
+      "status": "created"
+    },
+    {
+      "amount": 62345,
+      "amount_due": 62345,
+      "amount_paid": 0,
+      "attempts": 0,
+      "created_at": 1787627758,
+      "currency": "INR",
+      "entity": "order",
+      "id": "order_TTqoN64zvMnF8p",
+      "notes": {
+        "purpose": "ReconMint schema validation"
+      },
+      "offer_id": null,
+      "receipt": "reconmint_probe_2",
+      "status": "created"
+    },
+    {
+      "amount": 74690,
+      "amount_due": 74690,
+      "amount_paid": 0,
+      "attempts": 0,
+      "created_at": 1787627758,
+      "currency": "INR",
+      "entity": "order",
+      "id": "order_TTqoNJG1oXS13c",
+      "notes": {
+        "purpose": "ReconMint schema validation"
+      },
+      "offer_id": null,
+      "receipt": "reconmint_probe_3",
+      "status": "created"
+    }
+  ],
+  "order_fetch": {
+    "id": "order_TTqoMt4WLQVfAn",
+    "entity": "order",
+    "amount": 50000,
+    "amount_paid": 0,
+    "amount_due": 50000,
+    "currency": "INR",
+    "receipt": "reconmint_probe_1",
+    "offer_id": null,
+    "status": "created",
+    "attempts": 0,
+    "notes": {
+      "purpose": "ReconMint schema validation"
+    },
+    "created_at": 1787627757,
+    "description": null,
+    "checkout": null
+  },
+  "payments": {
+    "entity": "collection",
+    "count": 0,
+    "items": []
+  },
+  "settlements": {
+    "entity": "collection",
+    "count": 0,
+    "items": [],
+    "has_more": false
+  },
+  "errors": []
+}

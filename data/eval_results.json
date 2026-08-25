@@ -2,11 +2,12 @@
   "dataset_size": 520,
   "match_rate_pct": 97.68,
   "reconciled_rate_pct": 94.78,
+  "reconciled_amount_paise": 595124901,
   "matched_exact": 470,
   "matched_fuzzy": 35,
   "avg_confidence_fuzzy": 0.9384,
-  "elapsed_seconds": 0.1345,
-  "throughput_records_per_s": 11557.7,
+  "elapsed_seconds": 0.1225,
+  "throughput_records_per_s": 12685.1,
   "exception_detection": {
     "tp": 31,
     "fp": 5,
@@ -16,6 +17,16 @@
     "recall": 1.0,
     "f1": 0.9254
   },
+  "breakdown": {
+    "auto_matched": 455,
+    "fuzzy_matched": 35,
+    "fee_anomaly": 15,
+    "unresolved": 12,
+    "duplicates": 6,
+    "ghost_credits": 9,
+    "total": 532
+  },
+  "reconciled_amount_rupees": 5951249.01,
   "per_category_detection": {
     "chargeback": {
       "detected": 12,

@@ -129,6 +129,10 @@ export function auditExportUrl(runId) {
   return `${API_BASE}/runs/${runId}/audit-export?format=csv`;
 }
 
+export function sourceFileUrl(name) {
+  return `${API_BASE}/data/source/${name}`;
+}
+
 // ---- UploadPage.jsx convenience wrappers ----------------------------------
 // UploadPage.jsx calls these names directly. They're thin wrappers around the
 // real endpoints above so there's only one source of truth for API calls —

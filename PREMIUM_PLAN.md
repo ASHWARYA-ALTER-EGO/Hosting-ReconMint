@@ -58,7 +58,7 @@ green verified ticks, small monospace numbers. Matches the current aesthetic exa
 at least one demo question triggers a visible "refused - cannot verify" step.
 **Effort:** ~0.5-1 day (built alongside Phase 1).
 
-## Phase 2 - Razorpay test-key validation  (credibility with a Razorpay judge)
+## Phase 2 - Razorpay test-key validation  [DONE 2026-08-25]  (credibility with a Razorpay judge)
 **Why:** Proof you modeled THEIR platform, not a made-up CSV. Highest-leverage credibility move.
 **Tasks:**
 - `scripts/razorpay_probe.py`: using the test key, create a few Orders + Payments via the Razorpay
@@ -71,7 +71,7 @@ at least one demo question triggers a visible "refused - cannot verify" step.
 README states exactly what is real vs generated.
 **Effort:** ~0.5 day (you provide/confirm the test key + secret).
 
-## Phase 3 - README architecture diagram + honest metrics table  (first thing a judge sees)
+## Phase 3 - README architecture diagram + honest metrics table  [DONE 2026-08-25]  (first thing a judge sees)
 **Why:** A judge reads the README before running anything.
 **Tasks:**
 - Architecture diagram (text/mermaid or an image): frontend -> API -> agent loop -> deterministic
@@ -99,7 +99,7 @@ proves the metrics are earned.
 **Definition of done:** eval runs on 3 difficulty levels with honest, distinct metrics each.
 **Effort:** ~1 day.
 
-## Phase 5 - Richer visualization + report export  (premium finish)
+## Phase 5 - Richer visualization + report export  [DONE 2026-08-25: fee-waterfall drawer + fee-composition donut + one-click printable report. Skipped: heavyweight xlsx-viewer (wrong stack fit).]  (premium finish)
 **Tasks:**
 - Settlement fee-waterfall per exception in the drawer (gross -> net visual), and a batch-level
   fee-composition donut (MDR vs GST vs TCS vs refunds).

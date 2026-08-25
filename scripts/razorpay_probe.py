@@ -136,10 +136,17 @@ def write_markdown(captured: dict | None) -> None:
             src = {"order": captured["orders"][0],
                    "payment": (captured.get("payments") or {}),
                    "settlement": (captured.get("settlements") or {})}[entity]
-            got = set(src.keys()) if entity == "order" else set((src.get("items") or [{}])[0].keys()) if src.get("items") else set(src.keys())
+            items = src.get("items")
             expected = EXPECTED_FIELDS[entity]
-            present = sorted(expected & got)
-            lines.append(f"**{entity}** fields confirmed present: `{'`, `'.join(present) or '(entity empty in test mode)'}`")
+            if entity == "order":
+                present = sorted(expected & set(src.keys()))
+                lines.append(f"- **order** — {len(present)} fields confirmed live: `{'`, `'.join(present)}`")
+            elif items:
+                present = sorted(expected & set(items[0].keys()))
+                lines.append(f"- **{entity}** — {len(present)} fields confirmed live: `{'`, `'.join(present)}`")
+            else:
+                lines.append(f"- **{entity}** — empty in test mode (no live {entity}s yet); "
+                             f"schema per Razorpay docs: `{'`, `'.join(sorted(expected))}`")
         lines.append("\nRaw responses: `docs/razorpay_probe_output.json`.\n")
     else:
         lines.append("_Live capture pending._ Add your test keys to `.env` and run "

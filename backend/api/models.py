@@ -32,6 +32,7 @@ class RunMeta(BaseModel):
     throughput_rps: float
     reconciled_total: int
     reconciled_amount_paise: int = 0
+    fee_totals_paise: dict = {}
     exceptions_total: int
     needs_human_total: int
     llm_calls: int = 0

@@ -1,5 +1,9 @@
 import React from "react";
 import { formatINR } from "../api.js";
+import * as api from "../api.js";
+import FeeDonut from "../components/FeeDonut.jsx";
+import SourceFilesCard from "../components/SourceFilesCard.jsx";
+import { openReport } from "../report.js";
 
 function EmptyState({ onGoUpload }) {
   return (
@@ -196,6 +200,9 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <button onClick={() => openReport(run, evalData)} className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 rounded-md bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 custom-shadow">
+            <i className="fa-solid fa-file-lines text-slate-400"></i><span>Report</span>
+          </button>
           <button onClick={onExport} className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 rounded-md bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 custom-shadow">
             <i className="fa-solid fa-download text-slate-400"></i><span>Audit export (CSV)</span>
           </button>
@@ -232,7 +239,14 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
           )}
         </section>
 
-        {!evalData && <FooterStrip meta={m} />}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <FeeDonut fees={m.fee_totals_paise} />
+          {!evalData && <FooterStrip meta={m} />}
+        </section>
+
+        <section>
+          <SourceFilesCard isDemo={run.isDemo} height={380} />
+        </section>
       </div>
     </div>
   );
