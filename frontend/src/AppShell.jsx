@@ -5,10 +5,11 @@ import UploadPage from "./pages/UploadPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import ExceptionsPage from "./pages/ExceptionsPage.jsx";
 import AskPage from "./pages/AskPage.jsx";
+import ReconMintLanding from "./pages/ReconMintLanding.jsx";
 import * as api from "./api.js";
 
 export default function AppShell() {
-  const [view, setView] = useState("upload");
+  const [view, setView] = useState("landing");
   const [run, setRun] = useState(null); // { runId, meta, isDemo, severityCounts }
   const [evalData, setEvalData] = useState(null);
   const [toast, setToast] = useState(null);
@@ -64,9 +65,21 @@ export default function AppShell() {
     [afterRun]
   );
 
+  // The landing page is full-bleed (no app sidebar). Its CTAs enter the app at Upload.
+  if (view === "landing") {
+    return (
+      <div className="h-screen overflow-y-auto">
+        <ReconMintLanding
+          onGetStarted={() => setView("upload")}
+          onWatchDemo={() => setView("upload")}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex overflow-hidden">
-      <Sidebar active={view} onNavigate={setView} exceptionCount={exceptionCount} />
+      <Sidebar active={view} onNavigate={setView} exceptionCount={exceptionCount} onHome={() => setView("landing")} />
       <main className="flex-1 overflow-hidden bg-[#fcfcfc]">
         {view === "upload" && (
           <UploadPage onRunDemo={runDemo} onRunUpload={runUpload} showToast={showToast}

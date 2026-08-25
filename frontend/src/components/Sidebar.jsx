@@ -5,17 +5,13 @@ const ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "fa-solid fa-table-columns" },
   { id: "exceptions", label: "Exceptions", icon: "fa-solid fa-circle-exclamation" },
   { id: "ask", label: "Ask the agent", icon: "fa-solid fa-wand-magic-sparkles" },
-  { id: "reports", label: "Reports", icon: "fa-regular fa-file-lines", badge: "Soon" },
-  { id: "data-sources", label: "Data Sources", icon: "fa-solid fa-database", badge: "Soon" },
-  { id: "reconciliations", label: "Reconciliations", icon: "fa-solid fa-arrows-rotate", badge: "Soon" },
-  { id: "settings", label: "Settings", icon: "fa-solid fa-gear", badge: "Soon" },
 ];
 
-export default function Sidebar({ active, onNavigate, exceptionCount }) {
+export default function Sidebar({ active, onNavigate, exceptionCount, onHome }) {
   return (
     <aside className="w-72 bg-white border-r border-slate-100 flex flex-col justify-between h-full overflow-y-auto flex-shrink-0">
       <div>
-        <div className="p-8 flex items-center">
+        <div className="p-8 flex items-center cursor-pointer" onClick={onHome} title="Back to home">
           <i className="fa-solid fa-layer-group text-slate-800 text-2xl mr-3"></i>
           <span className="text-xl font-semibold text-slate-900 tracking-tight">ReconMint</span>
         </div>

@@ -14,6 +14,12 @@ import * as XLSX from "xlsx";
  *  - fileName        string   display name for the auto-loaded file
  *  - allowUpload     bool     show the "Upload" button (default true)
  *  - height          number   viewer height in px (default 420)
+ *  - focusRow        number   1-based row number to scroll to + highlight
+ *  - focusColumn     string|number  column letter ("C") or 0-based index to highlight
+ *  - focusToken      any      change this value to re-trigger the focus jump/pulse
+ *                              even if focusRow/focusColumn are unchanged (e.g. clicking
+ *                              the same cell reference twice in a row)
+ *  - onFocusHandled  fn       optional callback fired once the jump/pulse has run
  * ------------------------------------------------------------------
  */
 
@@ -43,6 +49,21 @@ function colLabel(n) {
     num = Math.floor((num - 1) / 26);
   }
   return s;
+}
+
+// Accepts "C", "c", or a numeric/string index and returns a 0-based column index.
+function resolveColumnIndex(focusColumn) {
+  if (focusColumn === null || focusColumn === undefined || focusColumn === "") return null;
+  if (typeof focusColumn === "number") return focusColumn;
+  const s = String(focusColumn).trim();
+  if (/^\d+$/.test(s)) return parseInt(s, 10);
+  const letters = s.toUpperCase().replace(/[^A-Z]/g, "");
+  if (!letters) return null;
+  let idx = 0;
+  for (let i = 0; i < letters.length; i++) {
+    idx = idx * 26 + (letters.charCodeAt(i) - 64);
+  }
+  return idx - 1;
 }
 
 function EmptyPanel({ onUploadClick, allowUpload, loading, error }) {
@@ -87,9 +108,14 @@ export default function ExcelViewerCard({
   fileName,
   allowUpload = true,
   height = 420,
+  focusRow = null,
+  focusColumn = null,
+  focusToken = null,
+  onFocusHandled,
 }) {
   const fileInputRef = useRef(null);
   const containerRef = useRef(null);
+  const cellRefs = useRef(new Map());
 
   const [workbook, setWorkbook] = useState(null);
   const [activeFileName, setActiveFileName] = useState(fileName || "");
@@ -99,6 +125,11 @@ export default function ExcelViewerCard({
   const [zoomIndex, setZoomIndex] = useState(2); // 100%
   const [search, setSearch] = useState("");
   const [rawBuffer, setRawBuffer] = useState(null);
+
+  // Selection state: the cell the user clicked, or the one we jumped to via focusRow/focusColumn.
+  const [selected, setSelected] = useState(null); // { row, col } — row is 0-based data row
+  const [pulseKey, setPulseKey] = useState(0); // bump to replay the pulse animation
+  const [hoveredCell, setHoveredCell] = useState(null); // { row, col }
 
   const zoom = ZOOM_STEPS[zoomIndex];
 
@@ -111,6 +142,9 @@ export default function ExcelViewerCard({
       setActiveFileName(name);
       setActiveSheetIndex(0);
       setRawBuffer(buffer);
+      setSelected(null);
+      setHoveredCell(null);
+      cellRefs.current.clear();
     } catch (e) {
       setError(e?.message || "This file could not be parsed as a spreadsheet.");
       setWorkbook(null);
@@ -196,6 +230,40 @@ export default function ExcelViewerCard({
   const cellMatches = (val) =>
     searchLower && String(val).toLowerCase().includes(searchLower);
 
+  // Jump to + highlight the requested row/column whenever they (or focusToken) change.
+  useEffect(() => {
+    if (!workbook || focusRow === null || focusRow === undefined) return;
+
+    const rowIdx = focusRow - 1; // grid is 0-based, row 1 = first data row
+    const colIdx = resolveColumnIndex(focusColumn);
+
+    if (rowIdx < 0 || rowIdx >= grid.length) return;
+
+    setSelected({ row: rowIdx, col: colIdx });
+
+    const key = colIdx !== null ? `${rowIdx}:${colIdx}` : `${rowIdx}:row`;
+    const target = cellRefs.current.get(key) || cellRefs.current.get(`${rowIdx}:row`);
+
+    if (target && containerRef.current) {
+      target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+    }
+
+    setPulseKey((k) => k + 1);
+
+    if (onFocusHandled) {
+      const t = setTimeout(() => onFocusHandled(), 50);
+      return () => clearTimeout(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workbook, activeSheetIndex, focusRow, focusColumn, focusToken, grid.length]);
+
+  const clearSelection = () => setSelected(null);
+
+  const registerCellRef = (key) => (el) => {
+    if (el) cellRefs.current.set(key, el);
+    else cellRefs.current.delete(key);
+  };
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 custom-shadow flex flex-col overflow-hidden">
       <input
@@ -205,6 +273,42 @@ export default function ExcelViewerCard({
         className="hidden"
         onChange={handleFileChange}
       />
+
+      <style>{`
+        @keyframes evc-cell-pulse {
+          0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.55), 0 0 0 0 rgba(16,185,129,0.0); }
+          40%  { box-shadow: 0 0 0 4px rgba(16,185,129,0.28), 0 0 18px 4px rgba(16,185,129,0.35); }
+          100% { box-shadow: 0 0 0 2px rgba(16,185,129,0.45), 0 0 0 0 rgba(16,185,129,0.0); }
+        }
+        @keyframes evc-row-sweep {
+          0%   { background-position: -120% 0; }
+          100% { background-position: 220% 0; }
+        }
+        @keyframes evc-select-pop {
+          0%   { transform: scale(1); }
+          35%  { transform: scale(1.045); }
+          100% { transform: scale(1); }
+        }
+        .evc-cell-focused {
+          animation: evc-cell-pulse 1.05s cubic-bezier(0.22, 1, 0.36, 1) 1;
+          position: relative;
+          z-index: 5;
+        }
+        .evc-row-focused td {
+          background-image: linear-gradient(
+            100deg,
+            transparent 0%,
+            rgba(16,185,129,0.16) 45%,
+            rgba(16,185,129,0.16) 55%,
+            transparent 100%
+          );
+          background-size: 220% 100%;
+          animation: evc-row-sweep 1.1s ease-out 1;
+        }
+        .evc-cell-selected {
+          animation: evc-select-pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) 1;
+        }
+      `}</style>
 
       {/* Header */}
       <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
@@ -224,6 +328,18 @@ export default function ExcelViewerCard({
 
         {workbook && (
           <div className="flex items-center gap-1.5 shrink-0">
+            {selected && (
+              <button
+                onClick={clearSelection}
+                className="hidden md:flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                title="Clear highlighted cell"
+              >
+                <i className="fa-solid fa-location-crosshairs text-[10px]"></i>
+                {colLabel(selected.col ?? 0)}
+                {selected.row + 1}
+                <i className="fa-solid fa-xmark text-[10px] ml-0.5 opacity-60"></i>
+              </button>
+            )}
             <div className="relative hidden sm:block">
               <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
               <input
@@ -281,6 +397,19 @@ export default function ExcelViewerCard({
         )}
       </div>
 
+      {/* Mobile-visible selection badge */}
+      {workbook && selected && (
+        <div className="md:hidden flex items-center justify-between px-5 py-2 bg-emerald-50 border-b border-emerald-100">
+          <span className="text-xs text-emerald-700 font-medium flex items-center gap-1.5">
+            <i className="fa-solid fa-location-crosshairs text-[10px]"></i>
+            Highlighted {colLabel(selected.col ?? 0)}{selected.row + 1}
+          </span>
+          <button onClick={clearSelection} className="text-emerald-600 text-xs">
+            <i className="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      )}
+
       {/* Body */}
       {!workbook ? (
         <div style={{ height }} className="flex flex-col">
@@ -305,38 +434,80 @@ export default function ExcelViewerCard({
               <thead>
                 <tr>
                   <th className="sticky top-0 left-0 z-20 bg-slate-100 border border-slate-200 text-slate-400 font-medium w-10 min-w-[40px]"></th>
-                  {Array.from({ length: colCount }).map((_, c) => (
-                    <th
-                      key={c}
-                      className="sticky top-0 z-10 bg-slate-100 border border-slate-200 text-slate-500 font-medium px-2 py-1 whitespace-nowrap min-w-[90px]"
-                    >
-                      {colLabel(c)}
-                    </th>
-                  ))}
+                  {Array.from({ length: colCount }).map((_, c) => {
+                    const isFocusedCol = selected && selected.col === c;
+                    return (
+                      <th
+                        key={c}
+                        className={`sticky top-0 z-10 border border-slate-200 font-medium px-2 py-1 whitespace-nowrap min-w-[90px] transition-colors duration-200 ${
+                          isFocusedCol
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {colLabel(c)}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {grid.map((row, r) => (
-                  <tr key={r}>
-                    <td className="sticky left-0 z-10 bg-slate-100 border border-slate-200 text-slate-400 text-center font-medium px-2">
-                      {r + 1}
-                    </td>
-                    {Array.from({ length: colCount }).map((_, c) => {
-                      const val = row[c] ?? "";
-                      const isMatch = cellMatches(val);
-                      return (
-                        <td
-                          key={c}
-                          className={`border border-slate-200 px-2 py-1 whitespace-nowrap text-slate-700 bg-white ${
-                            isMatch ? "bg-amber-100/70 ring-1 ring-inset ring-amber-300" : ""
-                          }`}
-                        >
-                          {String(val)}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                {grid.map((row, r) => {
+                  const isFocusedRow = selected && selected.row === r && selected.col === null;
+                  const rowHasFocusedCell = selected && selected.row === r && selected.col !== null;
+                  return (
+                    <tr
+                      key={`${r}-${pulseKey && isFocusedRow ? pulseKey : "s"}`}
+                      ref={registerCellRef(`${r}:row`)}
+                      className={isFocusedRow ? "evc-row-focused" : ""}
+                    >
+                      <td
+                        className={`sticky left-0 z-10 border border-slate-200 text-center font-medium px-2 transition-colors duration-200 ${
+                          selected && selected.row === r
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-slate-100 text-slate-400"
+                        }`}
+                      >
+                        {r + 1}
+                      </td>
+                      {Array.from({ length: colCount }).map((_, c) => {
+                        const val = row[c] ?? "";
+                        const isMatch = cellMatches(val);
+                        const isFocusedCell = rowHasFocusedCell && selected.col === c;
+                        const isHovered = hoveredCell && hoveredCell.row === r && hoveredCell.col === c;
+                        const cellKey = `${r}:${c}`;
+
+                        return (
+                          <td
+                            key={c}
+                            ref={isFocusedCell ? registerCellRef(cellKey) : undefined}
+                            onMouseEnter={() => setHoveredCell({ row: r, col: c })}
+                            onMouseLeave={() =>
+                              setHoveredCell((h) => (h && h.row === r && h.col === c ? null : h))
+                            }
+                            onClick={() => {
+                              setSelected({ row: r, col: c });
+                              setPulseKey((k) => k + 1);
+                            }}
+                            className={[
+                              "relative border px-2 py-1 whitespace-nowrap text-slate-700 cursor-pointer select-none",
+                              "transition-all duration-150 ease-out",
+                              isMatch ? "bg-amber-100/70 ring-1 ring-inset ring-amber-300" : "bg-white",
+                              isHovered && !isFocusedCell
+                                ? "bg-emerald-50/70 -translate-y-px shadow-[0_2px_6px_-2px_rgba(16,185,129,0.35)] border-emerald-200 z-[1]"
+                                : "border-slate-200",
+                              isFocusedCell
+                                ? "evc-cell-selected evc-cell-focused bg-emerald-50 border-emerald-400 ring-2 ring-emerald-400/70 text-emerald-800 font-medium z-[2]"
+                                : "",
+                            ].join(" ")}
+                          >
+                            {String(val)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
                 {grid.length === 0 && (
                   <tr>
                     <td colSpan={colCount + 1} className="text-center text-slate-400 py-8 text-xs">
