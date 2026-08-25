@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const NAV_ITEMS = [
   { key: "upload", label: "Upload", icon: "fa-arrow-up-from-bracket" },
@@ -9,6 +9,21 @@ const NAV_ITEMS = [
 
 const EASE = "cubic-bezier(0.4,0,0.2,1)";
 
+const C = {
+  ink: "#1F2A1A",
+  red: "#B5432F",
+  redDeep: "#8F3323",
+  moss: "#4B7B4E",
+  bg: "#FBFBF3",
+  card: "#F3F6ED",
+  border: "#E7EEDD",
+  borderStrong: "#D9E3C8",
+  t60: "#5C6752",
+  t40: "#8A9478",
+};
+
+const WORKSPACE_KEY = "reconmint_workspace_name_v1";
+
 /**
  * Label that fades + slides out (rather than hard-disappearing) as the
  * sidebar collapses, so text and icons never look like they're snapping.
@@ -16,7 +31,7 @@ const EASE = "cubic-bezier(0.4,0,0.2,1)";
 function FadeLabel({ collapsed, className = "", children }) {
   return (
     <span
-      className={`overflow-hidden whitespace-nowrap ${className}`}
+      className={`overflow-hidden whitespace-nowrap font-mono ${className}`}
       style={{
         maxWidth: collapsed ? 0 : 200,
         opacity: collapsed ? 0 : 1,
@@ -29,37 +44,87 @@ function FadeLabel({ collapsed, className = "", children }) {
   );
 }
 
+function initialsOf(name) {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  return (parts[0][0] + (parts[1]?.[0] || "")).toUpperCase();
+}
+
 /**
  * App sidebar with a collapse/expand toggle.
- * Width transitions smoothly in BOTH directions (same `transition` applies
- * regardless of collapsed state), labels fade/slide instead of popping,
- * and the toggle chevron rotates 180° rather than swapping icons.
+ * Width transitions smoothly in BOTH directions, labels fade/slide instead
+ * of popping, and the toggle chevron rotates 180° rather than swapping icons.
  */
 export default function Sidebar({
   active = "upload",
   onNavigate = () => {},
   exceptionCount = null,
   onHome = () => {},
+  workspaceName: workspaceNameProp,
+  onWorkspaceNameChange,
 }) {
   const [collapsed, setCollapsed] = useState(false);
 
+  // ── editable workspace name — user input instead of a hardcoded string ──
+  const [workspaceName, setWorkspaceName] = useState(() => {
+    if (workspaceNameProp) return workspaceNameProp;
+    try {
+      return localStorage.getItem(WORKSPACE_KEY) || "Your Workspace";
+    } catch {
+      return "Your Workspace";
+    }
+  });
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(workspaceName);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (workspaceNameProp && workspaceNameProp !== workspaceName) setWorkspaceName(workspaceNameProp);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceNameProp]);
+
+  useEffect(() => {
+    if (editing) {
+      setDraft(workspaceName);
+      requestAnimationFrame(() => inputRef.current?.select());
+    }
+  }, [editing]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const commitName = () => {
+    const clean = draft.trim() || "Your Workspace";
+    setWorkspaceName(clean);
+    setEditing(false);
+    try {
+      localStorage.setItem(WORKSPACE_KEY, clean);
+    } catch {
+      /* best-effort persistence only */
+    }
+    onWorkspaceNameChange?.(clean);
+  };
+
   return (
     <aside
-      className="h-full flex-shrink-0 bg-white border-r border-slate-100 flex flex-col relative"
+      className="h-full flex-shrink-0 flex flex-col relative font-mono"
       style={{
         width: collapsed ? 72 : 260,
         transition: `width 0.25s ${EASE}`,
         overflow: "visible",
+        background: C.bg,
+        borderRight: `1px solid ${C.border}`,
       }}
     >
-      {/* Collapse toggle — floats on the top-right edge of the sidebar */}
+      {/* Collapse toggle */}
       <button
         type="button"
         onClick={() => setCollapsed((c) => !c)}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className="absolute top-5 w-7 h-7 rounded-full bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 text-slate-400 hover:text-slate-700 flex items-center justify-center active:scale-90 z-10"
+        className="absolute top-5 w-7 h-7 rounded-full flex items-center justify-center active:scale-90 z-10"
         style={{
           right: -14,
+          background: C.bg,
+          border: `1px solid ${C.borderStrong}`,
+          color: C.t40,
+          boxShadow: "0 1px 3px rgba(31,42,26,0.12)",
           transition: `right 0.25s ${EASE}, box-shadow 0.15s ${EASE}, color 0.15s ${EASE}, border-color 0.15s ${EASE}, transform 0.1s ${EASE}`,
         }}
       >
@@ -73,27 +138,50 @@ export default function Sidebar({
         />
       </button>
 
-      {/* Brand */}
+      {/* Brand — ledger mark, echoes "LEDGER No." on the hero */}
       <button
         type="button"
         onClick={onHome}
         title={collapsed ? "ReconMint — home" : undefined}
         className="flex items-center gap-2.5 px-5 py-5 text-left hover:opacity-80 transition-opacity duration-150"
       >
-        <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center flex-shrink-0 overflow-hidden">
-          <img 
-            src="/favicon.png" 
-            alt="ReconMint" 
-            className="w-5 h-5 object-contain" 
-          />
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
+          style={{ background: C.ink }}
+        >
+          <img src="/favicon.png" alt="ReconMint" className="w-5 h-5 object-contain" />
         </div>
-        <FadeLabel collapsed={collapsed} className="font-bold text-slate-900 text-[17px] tracking-tight">
-          ReconMint
+        <FadeLabel collapsed={collapsed} className="min-w-0 block">
+          <div className="font-bold text-[16px] tracking-tight leading-tight" style={{ color: C.ink, fontFamily: "'Special Elite', monospace" }}>
+            ReconMint
+          </div>
+          <div className="text-[9px] uppercase tracking-[0.14em] mt-0.5" style={{ color: C.red }}>
+            Ledger No. 0412 RM
+          </div>
         </FadeLabel>
       </button>
 
+      {/* Quick action — new reconciliation */}
+      <div className="px-3 mb-2">
+        <button
+          type="button"
+          onClick={() => onNavigate("upload")}
+          title={collapsed ? "New reconciliation" : undefined}
+          className="w-full flex items-center gap-2.5 rounded-lg text-sm font-semibold active:scale-[0.98] justify-center"
+          style={{
+            padding: collapsed ? "10px 0" : "10px 12px",
+            background: C.ink,
+            color: C.bg,
+            transition: `transform 0.1s ${EASE}, background-color 0.15s ${EASE}`,
+          }}
+        >
+          <i className="fa-solid fa-plus text-[12px]" />
+          <FadeLabel collapsed={collapsed}>New reconciliation</FadeLabel>
+        </button>
+      </div>
+
       {/* Nav */}
-      <nav className="flex-1 px-3 flex flex-col gap-1 mt-2">
+      <nav className="flex-1 px-3 flex flex-col gap-1 mt-1">
         {NAV_ITEMS.map((item) => {
           const isActive = item.key === active;
           const count = item.countKey === "exceptionCount" ? exceptionCount : null;
@@ -103,18 +191,23 @@ export default function Sidebar({
               key={item.key}
               onClick={() => onNavigate(item.key)}
               title={collapsed ? item.label : undefined}
-              className={`relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium active:scale-[0.98] ${
-                isActive
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-              }`}
-              style={{ transition: `background-color 0.15s ${EASE}, color 0.15s ${EASE}, transform 0.1s ${EASE}` }}
+              className="relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium active:scale-[0.98]"
+              style={{
+                background: isActive ? C.card : "transparent",
+                color: isActive ? C.redDeep : C.t60,
+                borderLeft: isActive ? `2px solid ${C.red}` : "2px solid transparent",
+                transition: `background-color 0.15s ${EASE}, color 0.15s ${EASE}, transform 0.1s ${EASE}, border-color 0.15s ${EASE}`,
+              }}
+              onMouseOver={(e) => { if (!isActive) e.currentTarget.style.background = C.card; }}
+              onMouseOut={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
             >
               <span className="relative flex-shrink-0 w-4 flex items-center justify-center">
                 <i className={`fa-solid ${item.icon} text-[15px] text-center block`} />
                 <span
-                  className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-[3px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none"
+                  className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-[3px] rounded-full text-[9px] font-bold flex items-center justify-center leading-none"
                   style={{
+                    background: C.red,
+                    color: C.bg,
                     opacity: collapsed && count > 0 ? 1 : 0,
                     transform: collapsed && count > 0 ? "scale(1)" : "scale(0)",
                     transition: `opacity 0.2s ${EASE}, transform 0.2s ${EASE}`,
@@ -135,9 +228,11 @@ export default function Sidebar({
                 }}
               >
                 <span
-                  className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                    isActive ? "bg-blue-100 text-blue-700" : "bg-red-50 text-red-600"
-                  }`}
+                  className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                  style={{
+                    background: isActive ? "rgba(181,67,47,0.12)" : C.card,
+                    color: isActive ? C.redDeep : C.red,
+                  }}
                 >
                   {count > 99 ? "99+" : count}
                 </span>
@@ -147,19 +242,58 @@ export default function Sidebar({
         })}
       </nav>
 
-      {/* Workspace footer */}
-      <div className="border-t border-slate-100 px-3 py-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-            <i className="fa-solid fa-user text-slate-400 text-xs" />
-          </div>
-          <FadeLabel collapsed={collapsed} className="min-w-0 block">
-            <div className="text-sm font-semibold text-slate-900 truncate">
-              FinNext Pvt. Ltd.
+      {/* Workspace footer — editable name, user input instead of hardcoded */}
+      <div className="px-3 py-4" style={{ borderTop: `1px solid ${C.border}` }}>
+        {editing && !collapsed ? (
+          <div className="flex items-center gap-2.5">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
+              style={{ background: C.card, color: C.redDeep, border: `1px solid ${C.borderStrong}` }}
+            >
+              {initialsOf(draft)}
             </div>
-            <div className="text-xs text-slate-400 truncate">Workspace</div>
-          </FadeLabel>
-        </div>
+            <input
+              ref={inputRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitName();
+                if (e.key === "Escape") { setDraft(workspaceName); setEditing(false); }
+              }}
+              onBlur={commitName}
+              maxLength={40}
+              placeholder="Workspace name"
+              className="min-w-0 flex-1 text-sm font-semibold bg-transparent focus:outline-none border-b"
+              style={{ color: C.ink, borderColor: C.red }}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => !collapsed && setEditing(true)}
+            title={collapsed ? workspaceName : "Click to rename workspace"}
+            className="w-full flex items-center gap-2.5 group text-left"
+          >
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
+              style={{ background: C.card, color: C.redDeep, border: `1px solid ${C.borderStrong}` }}
+            >
+              {initialsOf(workspaceName)}
+            </div>
+            <FadeLabel collapsed={collapsed} className="min-w-0 block flex-1">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="text-sm font-semibold truncate" style={{ color: C.ink }}>
+                  {workspaceName}
+                </div>
+                <i
+                  className="fa-solid fa-pen text-[9px] opacity-0 group-hover:opacity-60 transition-opacity duration-150 flex-shrink-0"
+                  style={{ color: C.t40 }}
+                />
+              </div>
+              <div className="text-xs truncate" style={{ color: C.t40 }}>Workspace</div>
+            </FadeLabel>
+          </button>
+        )}
       </div>
     </aside>
   );

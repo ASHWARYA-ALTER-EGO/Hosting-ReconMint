@@ -49,12 +49,17 @@ app = FastAPI(title="ReconMint API", version=VERSION,
 
 # CORS: permissive for local dev / the Cloudflare Pages frontend. Lock to the Pages origin in prod
 # via RECONMINT_CORS_ORIGINS (comma-separated).
-_origins = os.environ.get("RECONMINT_CORS_ORIGINS", "*").split(",")
+_raw_origins = os.environ.get("RECONMINT_CORS_ORIGINS", "*")
+_origins = [o.strip() for o in _raw_origins.split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in _origins],
-    allow_methods=["*"],
+    allow_origins=_origins,
+    allow_origin_regex=None,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    allow_credentials=False,
+    expose_headers=[],
+    max_age=600,
 )
 
 audit = AuditLog()
