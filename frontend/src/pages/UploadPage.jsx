@@ -39,7 +39,8 @@ const JARGON = [
 ];
 
 // Plain-English "what this stage does" copy, matched against the trace step's
-// title so it stays in sync with whatever the backend actually ran.
+// title so it stays in sync with whatever the backend actually ran. Consumed
+// by AgentTrace's per-step (?) toggle.
 const STAGE_EXPLAINERS = [
   {
     match: /ingest|validat/i,
@@ -163,7 +164,6 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
   const [runResult, setRunResult] = useState(null);
   const [revealed, setRevealed] = useState(0);
   const [showInfo, setShowInfo] = useState(true);
-  const [showTraceExplainer, setShowTraceExplainer] = useState(true);
 
   // ── explicit labeling state ──────────────────────────────────
   const [slotDragOver, setSlotDragOver] = useState(null); // slot id currently dragged-over
@@ -474,17 +474,28 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
         .rm-chip:active { cursor: grabbing; }
         .rm-chip.dragging { opacity: 0.4; }
 
-        /* ─── Trace explainer ─────────────────────────────────── */
-        .rm-stage-row {
-          display: flex; gap: 14px; padding: 14px 4px;
-          border-top: 1px solid var(--rm-line-soft);
+        /* ─── Live trace card — premium ledger-panel treatment ──── */
+        .rm-trace-card {
+          position: relative;
+          border-radius: 16px;
+          background: var(--rm-card);
+          border: 1px solid var(--rm-line);
+          box-shadow: 0 1px 2px rgba(31,42,26,0.04), 0 24px 48px -24px rgba(31,42,26,0.22);
+          overflow: hidden;
         }
-        .rm-stage-row:first-child { border-top: none; }
-        .rm-stage-icon {
-          width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center;
-          background: var(--rm-card-alt); border: 1px solid var(--rm-line); color: var(--rm-rust-deep);
-          font-size: 13px;
+        .rm-trace-card::before {
+          content: "";
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          height: 3px;
+          background: linear-gradient(90deg, var(--rm-rust) 0%, var(--rm-rust) 33%, var(--rm-moss) 33%, var(--rm-moss) 66%, var(--rm-ink) 66%, var(--rm-ink) 100%);
+          opacity: 0.55;
+        }
+        .rm-trace-inner {
+          border-radius: 12px;
+          background: var(--rm-card);
+          border: 1px solid var(--rm-line-soft);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 0 rgba(31,42,26,0.02);
         }
       `}</style>
 
@@ -771,7 +782,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
           const displaySteps = done ? full : [...shown, { ...(full[revealed] || {}), status: "running", ms: null }];
           const m = runResult.meta;
           return (
-            <div className="rm-card-flat p-8 premium-shadow">
+            <div className="rm-trace-card p-8">
               {/* ── Summary header, written for a non-technical reader ── */}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
@@ -814,60 +825,13 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
                   In plain terms: the agent read all three files, recalculated the fees your gateway should have charged, matched
                   each payment across orders, settlement and bank records, and only flagged the {m.exceptions_total} that genuinely
                   need a decision from you. Nothing below was estimated or guessed — every stage is either an exact calculation or a
-                  written rule, and the full chain is logged for audit.
+                  written rule, and the full chain is logged for audit. Tap the <span className="rm-mono" style={{ color: "var(--rm-rust-deep)", fontWeight: 600 }}>(?)</span> next to any stage below for a plain-English explanation.
                 </p>
               )}
 
-              <AgentTrace trace={displaySteps} label="Live reconciliation trace" />
-
-              {/* ── "What each stage means" — plain-English breakdown, driven by the real trace ── */}
-              {full.length > 0 && (
-                <div className="mt-6 rounded-xl overflow-hidden" style={{ border: "1px solid var(--rm-line)", background: "var(--rm-card-alt)" }}>
-                  <button
-                    onClick={() => setShowTraceExplainer((v) => !v)}
-                    className="w-full flex items-center justify-between px-5 py-3.5 transition-colors duration-150"
-                  >
-                    <span className="rm-label text-[11px] font-semibold flex items-center gap-2" style={{ color: "var(--rm-rust-deep)" }}>
-                      <i className="fa-regular fa-lightbulb"></i> What each stage actually did
-                    </span>
-                    <i className={`fa-solid fa-chevron-down text-xs transition-transform duration-200`} style={{ color: "var(--rm-ink-soft)", transform: showTraceExplainer ? "rotate(180deg)" : "none" }}></i>
-                  </button>
-                  {showTraceExplainer && (
-                    <div className="px-5 pb-5 pt-1 animate-[fadeSlideIn_0.25s_ease-out]">
-                      {displaySteps.map((step, i) => {
-                        const title = step.title || step.name || `Stage ${i + 1}`;
-                        const rawDesc = step.subtitle || step.description || step.detail || "";
-                        const info = explainerFor(title);
-                        return (
-                          <div key={i} className="rm-stage-row">
-                            <div className="rm-stage-icon">
-                              <i className={info ? info.icon : "fa-solid fa-gear"}></i>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5">
-                                <span className="rm-heading-sm text-[13px] font-semibold">{title}</span>
-                                {step.ms != null && (
-                                  <span className="rm-mono text-[10px]" style={{ color: "var(--rm-ink-soft)" }}>{step.ms}ms</span>
-                                )}
-                              </div>
-                              {rawDesc && (
-                                <div className="rm-mono text-[11px] mt-0.5" style={{ color: "var(--rm-ink-soft)" }}>
-                                  {withJargonTips(rawDesc)}
-                                </div>
-                              )}
-                              {info && (
-                                <p className="rm-body text-xs leading-relaxed mt-1.5" style={{ color: "var(--rm-ink)" }}>
-                                  {info.plain}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
+              <div className="rm-trace-inner p-6">
+                <AgentTrace trace={displaySteps} label="Live reconciliation trace" getExplainer={explainerFor} />
+              </div>
 
               {done && (
                 <div className="mt-5 flex items-start gap-2.5 text-xs font-medium rounded-lg px-4 py-3 w-fit max-w-full animate-[fadeSlideIn_0.4s_ease-out]" style={{ background: "var(--rm-moss-wash)", border: "1px solid var(--rm-moss)", color: "var(--rm-ink)" }}>
