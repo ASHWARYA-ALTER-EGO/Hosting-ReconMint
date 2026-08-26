@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import Sidebar from "./components/Sidebar.jsx";
 import Toast from "./components/Toast.jsx";
 import UploadPage from "./pages/UploadPage.jsx";
@@ -8,12 +8,32 @@ import AskPage from "./pages/AskPage.jsx";
 import ReconMintLanding from "./pages/ReconMintLanding.jsx";
 import * as api from "./api.js";
 
+const RUN_STORAGE_KEY = "reconmint_last_run";
+
+function loadStoredRun() {
+  try {
+    const raw = sessionStorage.getItem(RUN_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function AppShell() {
   const [view, setView] = useState("landing");
-  const [run, setRun] = useState(null); // { runId, meta, isDemo, severityCounts }
+  const [run, setRun] = useState(loadStoredRun); // { runId, meta, isDemo, severityCounts }
   const [evalData, setEvalData] = useState(null);
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
+
+  useEffect(() => {
+    try {
+      if (run) sessionStorage.setItem(RUN_STORAGE_KEY, JSON.stringify(run));
+      else sessionStorage.removeItem(RUN_STORAGE_KEY);
+    } catch {
+      /* sessionStorage may be unavailable */
+    }
+  }, [run]);
 
   const showToast = useCallback((message, tone = "success") => {
     setToast({ message, tone });

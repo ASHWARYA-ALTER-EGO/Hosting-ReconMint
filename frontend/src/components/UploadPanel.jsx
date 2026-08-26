@@ -80,7 +80,7 @@ export default function UploadPanel({
     setFiles((prev) => ({ ...prev, ...assignFiles(e.target.files) }));
   };
   const removeFile = (id) => setFiles((prev) => ({ ...prev, [id]: null }));
-  const validClient = (f) => f && f.name.toLowerCase().endsWith(".csv") && f.size > 0;
+  const validClient = (f) => f && /\.(csv|xlsx|xlsm|xls|xlsb)$/i.test(f.name) && f.size > 0;
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -94,7 +94,7 @@ export default function UploadPanel({
   const runUpload = async () => {
     setError(null);
     if (!allThree) {
-      setError({ title: "Missing files", items: ["Please add all 3 CSV files (orders, settlement, bank)."] });
+      setError({ title: "Missing files", items: ["Please add all 3 files (orders, settlement, bank) as CSV or Excel."] });
       return;
     }
     setBusy("upload");
@@ -146,7 +146,7 @@ export default function UploadPanel({
         {/* intake */}
         <section className="group/card bg-white p-7 rounded-2xl border border-slate-100 flex flex-col upnl-shadow hover:border-teal-100 hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_16px_32px_-16px_rgba(15,118,110,0.18)] transition-all duration-300">
           <h3 className="text-xs font-semibold text-slate-400 tracking-wider mb-2 uppercase">File Intake</h3>
-          <p className="text-sm text-slate-500 mb-5">Upload any 3 CSV files to start.</p>
+          <p className="text-sm text-slate-500 mb-5">Upload any 3 CSV or Excel files to start.</p>
           <div
             onClick={() => inputRef.current?.click()}
             onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
@@ -169,8 +169,8 @@ export default function UploadPanel({
             <div className="text-xs text-slate-500 mb-4">
               or <span className="text-teal-700 font-medium underline underline-offset-2 decoration-teal-300">browse</span> from your device
             </div>
-            <div className="text-[11px] text-slate-400 font-medium">CSV only (max 50MB each)</div>
-            <input ref={inputRef} type="file" accept=".csv" multiple className="hidden" onChange={onPick} />
+            <div className="text-[11px] text-slate-400 font-medium">CSV or Excel (.xlsx, .xls, .xlsm, .xlsb) · max 50MB each</div>
+            <input ref={inputRef} type="file" accept=".csv,.xlsx,.xlsm,.xls,.xlsb,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" multiple className="hidden" onChange={onPick} />
           </div>
         </section>
 
@@ -192,7 +192,7 @@ export default function UploadPanel({
           {chosen.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center border border-dashed border-slate-200 rounded-2xl p-8 text-slate-400 hover:border-teal-200 hover:bg-teal-50/20 transition-colors duration-300">
               <i className="fa-regular fa-file-lines text-2xl mb-3 opacity-50"></i>
-              <p className="text-sm font-medium">No files yet. Choose 3 CSVs, or use sample data.</p>
+              <p className="text-sm font-medium">No files yet. Choose 3 CSV or Excel files, or use sample data.</p>
             </div>
           ) : (
             <div className="flex-1 space-y-3">
@@ -212,7 +212,7 @@ export default function UploadPanel({
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
                     <div className={`upnl-status-badge ${validClient(s.file) ? "!bg-teal-50 !text-teal-700" : "invalid"}`}>
-                      {validClient(s.file) ? "Valid" : "Not CSV"}
+                      {validClient(s.file) ? "Valid" : "Not a table"}
                     </div>
                     <button
                       onClick={() => removeFile(s.id)}

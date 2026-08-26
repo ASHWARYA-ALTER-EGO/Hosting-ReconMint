@@ -4,12 +4,12 @@ ReconMint API (Day 8).
 FastAPI layer the dashboard consumes. Endpoints:
 
   GET  /health                          component status
-  POST /reconcile                       upload orders/settlement/bank CSVs -> run + summary
+  POST /reconcile                       upload orders/settlement/bank CSV or Excel -> run + summary
   POST /reconcile/demo                  run on the built-in synthetic dataset (no upload)
   GET  /runs/{run_id}                   run summary
   GET  /runs/{run_id}/exceptions        exceptions needing a human (filter by severity)
   GET  /runs/{run_id}/decisions         all logged decisions
-  GET  /runs/{run_id}/audit-export      full audit trail as JSON or CSV download
+  POST /ask                             question about a run (JSON {run_id, question})
 
 Design notes:
   - The engine is deterministic and CPU-bound (sub-second for a demo batch), so endpoints are plain
@@ -35,10 +35,10 @@ from backend import config
 from backend.agent.audit import AuditLog, db_path
 from backend.agent.orchestrator import reconcile
 from backend.engine.validation import InputValidationError
-from backend.engine.loader import DEFAULT_DATA_DIR
+from backend.engine.loader import DEFAULT_DATA_DIR, table_extension
 from backend.api.models import (
     HealthStatus, HealthComponent, RunMeta, ReconcileResponse, SeverityCounts,
-    ExceptionItem, ExceptionList,
+    ExceptionItem, ExceptionList, AskRequest,
 )
 
 VERSION = "0.8.0"
@@ -123,7 +123,8 @@ def _save_uploads_and_reconcile(files: dict[str, UploadFile], use_llm: bool) -> 
     try:
         for field, up in files.items():
             _validate_upload(field, up)
-            dest = os.path.join(tmp, f"{field}.csv")
+            ext = table_extension(up.filename) or ".csv"
+            dest = os.path.join(tmp, f"{field}{ext}")
             with open(dest, "wb") as f:
                 shutil.copyfileobj(up.file, f)
         return reconcile(data_dir=tmp, persist=True, use_llm=use_llm)
@@ -132,8 +133,11 @@ def _save_uploads_and_reconcile(files: dict[str, UploadFile], use_llm: bool) -> 
 
 
 def _validate_upload(field: str, up: UploadFile) -> None:
-    if not up.filename.lower().endswith(".csv"):
-        raise InputValidationError(f"{field} must be a .csv file (got '{up.filename}').")
+    if not table_extension(up.filename):
+        raise InputValidationError(
+            f"{field} must be a CSV or Excel file (.csv, .xlsx, .xlsm, .xls, .xlsb); "
+            f"got '{up.filename}'."
+        )
     up.file.seek(0, os.SEEK_END)
     size = up.file.tell()
     up.file.seek(0)
@@ -272,13 +276,23 @@ def ask_examples():
 
 
 @app.post("/ask")
-def ask(run_id: str = Form(...), question: str = Form(...)):
+def ask(payload: AskRequest):
     """Settlement Q&A agent: understand -> compute (deterministic) -> verify -> answer, with trace."""
     from backend.agent.qa import ask as qa_ask
-    if not audit.get_run(run_id):
+    question = (payload.question or "").strip()
+    if not question:
+        raise InputValidationError("Question cannot be empty.")
+    if not audit.get_run(payload.run_id):
         return JSONResponse(status_code=404, content={"error": "not_found",
-                                                      "detail": f"run {run_id} not found"})
-    return qa_ask(run_id, question)
+                                                      "detail": f"run {payload.run_id} not found"})
+    try:
+        return qa_ask(payload.run_id, question)
+    except Exception:  # noqa: BLE001
+        return JSONResponse(
+            status_code=500,
+            content={"error": "ask_failed",
+                     "detail": "The agent could not answer that question. Try again in a moment."},
+        )
 
 
 @app.get("/data/source/{name}")

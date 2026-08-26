@@ -3,8 +3,8 @@ ReconMint input validation + exception severity.
 
 Two small, high-value pieces of hardening:
 
-1. `validate_inputs` checks the three uploaded CSVs have the columns we need and are non-empty,
-   returning FRIENDLY messages ("bank.csv is missing column 'utr'") instead of a pandas KeyError
+1. `validate_inputs` checks the three uploaded files have the columns we need and are non-empty,
+   returning FRIENDLY messages ("bank file is missing column 'utr'") instead of a pandas KeyError
    deep in the engine. The API layer surfaces these to the user; nothing leaks a stack trace.
 
 2. `severity_for` assigns an exception a level - critical / warning / info - so the dashboard and
@@ -48,12 +48,12 @@ def validate_frame(name: str, df) -> list[str]:
     problems: list[str] = []
     required = REQUIRED_COLUMNS.get(name, set())
     if df is None:
-        return [f"{name}.csv could not be read."]
+        return [f"{name} file could not be read."]
     if len(df) == 0:
-        problems.append(f"{name}.csv has no rows.")
+        problems.append(f"{name} file has no rows.")
     missing = required - set(df.columns)
     for col in sorted(missing):
-        problems.append(f"{name}.csv is missing required column '{col}'.")
+        problems.append(f"{name} file is missing required column '{col}'.")
     return problems
 
 

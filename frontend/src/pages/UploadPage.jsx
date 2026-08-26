@@ -7,8 +7,10 @@ const FONT_IMPORT_URL =
   "https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap";
 
 // ─── Placeholder — swap for your real shared sample dataset ───
-const SAMPLE_DATASET_URL = "https://drive.google.com/drive/folders/PLACEHOLDER_SAMPLE_DATASET";
+const SAMPLE_DATASET_URL = "https://drive.google.com/drive/folders/1P3ob4rXyFbA94IAP4DG4Oi_9xi8wpQeE?usp=sharing";
 
+const ACCEPT_TABLE = ".csv,.xlsx,.xlsm,.xls,.xlsb,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv";
+const TABLE_EXT = /\.(csv|xlsx|xlsm|xls|xlsb)$/i;
 const SLOTS = [
   { id: "orders", name: "Orders", short: "Orders export", icon: "fa-solid fa-cart-shopping", key: "order" },
   { id: "settlement", name: "Settlement Report", short: "Settlement", icon: "fa-regular fa-file-lines", key: "settle" },
@@ -142,7 +144,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
     setAskSingle(null);
   };
 
-  const validClient = (f) => f && f.name.toLowerCase().endsWith(".csv") && f.size > 0;
+  const validClient = (f) => f && TABLE_EXT.test(f.name) && f.size > 0;
 
   const runUpload = async () => {
     setError(null);
@@ -157,7 +159,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
     if (invalid.length) {
       setError({
         title: "Validation errors",
-        items: invalid.map((s) => `${s.name}: "${s.file.name}" doesn't look like a valid CSV — check the file and try again.`),
+        items: invalid.map((s) => `${s.name}: "${s.file.name}" isn't a CSV or Excel file — check the file and try again.`),
       });
       return;
     }
@@ -482,7 +484,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
                     <input
                       ref={slotInputRefs[s.id]}
                       type="file"
-                      accept=".csv"
+                      accept={ACCEPT_TABLE}
                       className="hidden"
                       onChange={(e) => { const f = e.target.files?.[0]; if (f) assignToSlot(s.id, f); e.target.value = ""; }}
                     />
@@ -515,8 +517,8 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
               <div className="rm-body text-xs mb-1" style={{ color: "var(--rm-ink-soft)" }}>
                 or <span className="font-medium underline underline-offset-2" style={{ color: "var(--rm-rust-deep)" }}>browse</span> from your device
               </div>
-              <div className="rm-mono text-[11px] font-medium" style={{ color: "var(--rm-ink-soft)" }}>CSV only (max 50MB each) · we'll ask which is which</div>
-              <input ref={combinedInputRef} type="file" accept=".csv" multiple className="hidden" onChange={handleCombinedPick} />
+              <div className="rm-mono text-[11px] font-medium" style={{ color: "var(--rm-ink-soft)" }}>CSV or Excel (.xlsx, .xls, .xlsm, .xlsb) · max 50MB each · we'll ask which is which</div>
+              <input ref={combinedInputRef} type="file" accept={ACCEPT_TABLE} multiple className="hidden" onChange={handleCombinedPick} />
             </div>
 
             <div className="mt-6 flex items-start text-xs font-medium" style={{ color: "var(--rm-ink-soft)" }}>
@@ -540,7 +542,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
             {chosen.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center rounded-xl p-10 transition-colors duration-300" style={{ border: "1px dashed var(--rm-line)", color: "var(--rm-ink-soft)", background: "var(--rm-card-alt)" }}>
                 <i className="fa-regular fa-file-lines text-3xl mb-3 opacity-40"></i>
-                <p className="rm-body text-sm font-medium">No files yet. Label 3 CSVs above, or use sample data.</p>
+                <p className="rm-body text-sm font-medium">No files yet. Label 3 CSV or Excel files above, or use sample data.</p>
               </div>
             ) : (
               <div className="flex-1 space-y-4">
@@ -554,7 +556,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <div className={`rm-mono status-badge ${validClient(s.file) ? "" : "invalid"}`}>{validClient(s.file) ? "Valid" : "Not CSV"}</div>
+                      <div className={`rm-mono status-badge ${validClient(s.file) ? "" : "invalid"}`}>{validClient(s.file) ? "Valid" : "Not a table"}</div>
                       <button onClick={() => removeFile(s.id)} className="p-1.5 rounded-md transition-colors duration-200" style={{ color: "var(--rm-ink-soft)" }}>
                         <i className="fa-regular fa-trash-can"></i>
                       </button>
@@ -586,7 +588,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
         </div>
         <div className="text-center -mt-4 mb-8">
           <a href={SAMPLE_DATASET_URL} target="_blank" rel="noopener noreferrer" className="rm-mono text-xs font-medium underline underline-offset-2" style={{ color: "var(--rm-ink-soft)" }}>
-            or download the sample CSVs from Google Drive to test locally →
+            or download the sample files from Google Drive to test locally →
           </a>
         </div>
 

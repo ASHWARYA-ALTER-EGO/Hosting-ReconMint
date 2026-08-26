@@ -38,7 +38,7 @@ function BorderBeam({
 
       {/* thin animated ring — the actual traveling beam */}
       <div
-        className="absolute -inset-[1px] rounded-2xl overflow-hidden"
+        className="pointer-events-none absolute -inset-[1px] rounded-2xl overflow-hidden"
         aria-hidden="true"
       >
         <div
@@ -64,7 +64,7 @@ function BorderBeam({
       {/* faint static ring so the box has definition even between beam passes */}
       <div
         aria-hidden="true"
-        className="absolute -inset-[1px] rounded-2xl pointer-events-none"
+        className="pointer-events-none absolute -inset-[1px] rounded-2xl"
         style={{
           boxShadow: active
             ? "0 0 0 1px rgba(148, 163, 184, 0.12)"
@@ -204,7 +204,8 @@ export const PromptInputBox = forwardRef(({ onSend, isLoading = false, placehold
   const [focused, setFocused] = useState(false);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
-  const boxRef = ref || useRef(null);
+  const localBoxRef = useRef(null);
+  const boxRef = ref || localBoxRef;
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -236,18 +237,16 @@ export const PromptInputBox = forwardRef(({ onSend, isLoading = false, placehold
 
   const handleSubmit = () => {
     const text = input.trim();
-    if (!text && files.length === 0) return;
-    const prefix = mode === "search" ? "[Search] " : mode === "think" ? "[Think] " : mode === "canvas" ? "[Canvas] " : "";
-    onSend?.(prefix + text, files);
+    if (!text || isLoading) return;
+    onSend?.(text);
     setInput(""); setFiles([]); setPreviews({});
   };
 
-  const handleRecordingStop = duration => {
+  const handleRecordingStop = () => {
     setIsRecording(false);
-    onSend?.(`[Voice – ${duration}s]`, []);
   };
 
-  const hasContent = input.trim() !== "" || files.length > 0;
+  const hasContent = input.trim() !== "";
   const toggleMode = m => setMode(prev => prev === m ? null : m);
 
   return (
@@ -656,15 +655,31 @@ export default function AskPage({ run, showToast, onGoUpload }) {
   if (!run) return <EmptyState onGoUpload={onGoUpload} />;
 
   const ask = async (question) => {
-    const q = (question ?? input).trim();
+    const q = String(question ?? input ?? "").trim();
     if (!q || busy) return;
+    const runId = run.runId || run.run_id;
+    if (!runId) {
+      showToast?.("No reconciliation run is loaded. Reconcile a batch first.", "error");
+      return;
+    }
     setInput("");
     setBusy(true);
     try {
-      const result = await api.askAgent(run.runId, q);
-      setHistory(h => [...h, { question: q, result }]);
+      const result = await api.askAgent(runId, q);
+      setHistory((h) => [...h, { question: q, result }]);
     } catch (e) {
-      showToast?.(e.message ?? "Something went wrong", "error");
+      const message = e.message ?? "Something went wrong";
+      showToast?.(message, "error");
+      setHistory((h) => [...h, {
+        question: q,
+        result: {
+          answer: message,
+          figures: [],
+          rows: [],
+          verified: false,
+          trace: [{ title: "Request failed", detail: message, ms: 0, status: "refused" }],
+        },
+      }]);
     } finally {
       setBusy(false);
     }
@@ -692,7 +707,7 @@ export default function AskPage({ run, showToast, onGoUpload }) {
             style={{ background: "#1F2A1A", color: "#FBFBF3" }}>Autonomous</span>
         </div>
         <p className="text-xs mt-1 leading-relaxed" style={{ color: "#8A9478" }}>
-          Plans, computes deterministically, verifies every figure, and refuses to state a number it can't prove.
+          Plans, computes deterministically, verifies every figure, and refuses anything outside this run's files and finance facts.
         </p>
       </header>
 
@@ -754,7 +769,8 @@ export default function AskPage({ run, showToast, onGoUpload }) {
           </BorderBeam>
 
           <p className="text-[10px] text-center mt-2" style={{ color: "#B7C4A3" }}>
-            Press <kbd className="border rounded px-1 py-0.5 text-[10px]" style={{ background: "#F3F6ED", borderColor: "#D9E3C8" }}>Enter</kbd> to send &nbsp;·&nbsp; <kbd className="border rounded px-1 py-0.5 text-[10px]" style={{ background: "#F3F6ED", borderColor: "#D9E3C8" }}>Shift+Enter</kbd> for new line
+            Answers this run only — files, fees, exceptions, payment ids. Off-topic questions are refused.
+            &nbsp;·&nbsp; Press <kbd className="border rounded px-1 py-0.5 text-[10px]" style={{ background: "#F3F6ED", borderColor: "#D9E3C8" }}>Enter</kbd> to send
           </p>
         </div>
       </div>

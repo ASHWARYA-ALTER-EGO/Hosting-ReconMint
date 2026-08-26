@@ -60,6 +60,25 @@ def test_validation_rejects_missing_column():
         assert any("net_settled" in e for e in report.errors)
 
 
+def test_loader_reads_xlsx_and_aliases():
+    """Excel workbooks with a title row and aliased headers still load."""
+    with tempfile.TemporaryDirectory() as tmp:
+        write_dataset(tmp, 40)
+        import pandas as pd
+        from backend.engine.loader import load_inputs as load
+
+        orders = pd.read_csv(os.path.join(tmp, "orders.csv"))
+        xlsx_path = os.path.join(tmp, "orders.xlsx")
+        with pd.ExcelWriter(xlsx_path, engine="openpyxl") as writer:
+            orders.to_excel(writer, index=False, startrow=2)
+            writer.sheets["Sheet1"]["A1"] = "Merchant orders export"
+        os.remove(os.path.join(tmp, "orders.csv"))
+        inputs = load(tmp)
+        assert len(inputs.orders) == 40
+        assert "order_id" in inputs.orders.columns
+        assert "gross_paise" in inputs.orders.columns
+
+
 if __name__ == "__main__":
     passed = 0
     for name, fn in list(globals().items()):

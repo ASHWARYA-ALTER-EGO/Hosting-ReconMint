@@ -83,3 +83,8 @@ class ExceptionList(BaseModel):
 class ErrorResponse(BaseModel):
     error: str
     detail: str | None = None
+
+
+class AskRequest(BaseModel):
+    run_id: str
+    question: str

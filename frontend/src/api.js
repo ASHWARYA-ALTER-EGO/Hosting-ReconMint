@@ -83,7 +83,10 @@ async function req(path, opts = {}) {
       );
     }
     const detail = (body && body.detail) || (body && body.error) || `HTTP ${res.status}`;
-    throw new Error(detail);
+    const message = Array.isArray(detail)
+      ? detail.map((d) => d.msg || d.detail || JSON.stringify(d)).join("; ")
+      : (typeof detail === "object" && detail !== null ? (detail.msg || JSON.stringify(detail)) : String(detail));
+    throw new Error(message);
   }
   return body;
 }
@@ -138,10 +141,11 @@ export function explainDecision(decisionId) {
 }
 
 export function askAgent(runId, question) {
-  const fd = new URLSearchParams();
-  fd.set("run_id", runId);
-  fd.set("question", question);
-  return req("/ask", { method: "POST", body: fd });
+  return req("/ask", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ run_id: runId, question }),
+  });
 }
 
 export function getAskExamples() {
