@@ -1,0 +1,37 @@
+worker_processes auto;
+error_log /var/log/nginx/error.log warn;
+pid /tmp/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    sendfile on;
+    client_max_body_size 50M;
+
+    server {
+        listen ${PORT};
+        root /usr/share/nginx/html;
+        index index.html;
+
+        # SPA fallback
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        # Proxy API calls to the FastAPI backend (set BACKEND_URL on Railway).
+        location ~ ^/(health|reconcile|runs/|decisions/|ask|eval|data/) {
+            proxy_pass ${BACKEND_URL};
+            proxy_http_version 1.1;
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 300s;
+            client_max_body_size 50M;
+        }
+    }
+}

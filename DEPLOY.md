@@ -4,36 +4,57 @@ The Buildathon is judged on the repo + the 5-minute video, so a live deploy is a
 not a requirement. Record the video against localhost. This file pre-wires the deploy path so you
 can flip it on late (Day 11) without scrambling.
 
-## Architecture
-- **Backend (FastAPI + engine)** -> Railway
-- **Frontend (React dashboard)** -> Cloudflare Pages
-- Frontend calls the backend via `VITE_API_BASE_URL` (set to the Railway URL at deploy time).
+## Architecture (Railway — two services)
+
+| Service | Root directory | Config | Public URL |
+|---------|----------------|--------|------------|
+| **Backend** (FastAPI) | repo root | `railway.json` + root `Dockerfile` | e.g. `https://reconmint-api.up.railway.app` |
+| **Frontend** (React) | `frontend/` | `frontend/railway.json` + `frontend/Dockerfile` | e.g. `https://reconmint.up.railway.app` |
+
+The frontend nginx container **proxies** `/reconcile`, `/health`, `/runs/*`, etc. to the backend, so
+the browser never POSTs to a static file server (which causes **HTTP 405**).
 
 ## Backend on Railway
-Already scaffolded:
-- `Procfile` -> `web: uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT`
-- `railway.json` -> NIXPACKS build + start command
-- `runtime.txt` -> pins Python 3.11.9
-- `requirements.txt` -> deps
 
-Steps (when the API exists, Day 8+):
-1. Push repo to GitHub (you commit manually — assistant never commits).
-2. Railway -> New Project -> Deploy from GitHub repo.
-3. Set env vars in Railway: `OPENAI_API_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`.
-4. Railway auto-detects `railway.json`; deploy. Note the public URL.
-5. CORS: `backend/api/main.py` must allow the Cloudflare Pages origin.
+1. New service → connect GitHub repo → **Root Directory: `/`** (repo root).
+2. Railway uses root `Dockerfile` / `railway.json` (healthcheck `/health`).
+3. Set env vars:
+   - `OPENAI_API_KEY` (optional — demo works without LLM)
+   - `RECONMINT_CORS_ORIGINS=https://your-frontend.up.railway.app` (comma-separate multiple origins)
+4. Deploy and copy the public URL (no trailing slash).
 
-> Note: `backend/api/main.py` does not exist until Day 8. Until then the start command has nothing
-> to serve — that is expected. The config is intentionally pre-staged.
+## Frontend on Railway
 
-## Frontend on Cloudflare Pages
-Wired on Day 8 when `frontend/` is created (Vite + React):
-1. Cloudflare Pages -> Create project -> connect the GitHub repo.
-2. Build command: `npm run build`   |   Output dir: `dist`   |   Root: `frontend`.
-3. Env var: `VITE_API_BASE_URL = <railway backend url>`.
-4. Deploy; Cloudflare gives a `*.pages.dev` URL.
+1. New service → same repo → **Root Directory: `frontend`**.
+2. Railway uses `frontend/Dockerfile` / `frontend/railway.json`.
+3. Set env var:
+   - **`BACKEND_URL`** = your backend public URL, e.g. `https://reconmint-api.up.railway.app`
+4. Redeploy.
+
+Do **not** point `VITE_API_BASE_URL` at the frontend URL — that sends POST requests to the static
+server and returns 405.
+
+### Alternative: Cloudflare Pages (frontend only)
+
+1. Build command: `npm run build` | Output: `dist` | Root: `frontend`
+2. Build env: `VITE_API_BASE_URL = <railway backend url>`
+3. Set `RECONMINT_CORS_ORIGINS` on the backend to your `*.pages.dev` origin.
+
+## Verify after deploy
+
+```bash
+# Backend
+curl https://YOUR-BACKEND.up.railway.app/health
+
+# Demo reconcile (must return 200 JSON, not 405)
+curl -X POST https://YOUR-BACKEND.up.railway.app/reconcile/demo
+
+# Through frontend proxy (same POST via nginx)
+curl -X POST https://YOUR-FRONTEND.up.railway.app/reconcile/demo
+```
 
 ## Data / persistence note
+
 Reconciliation runs are stateless per upload. The SQLite audit log path is env-configurable via
 `RECONMINT_DB` (defaults to `data/audit.db`). On Railway:
 - For the demo, the ephemeral default is fine (audit log resets on redeploy).
@@ -42,5 +63,6 @@ Reconciliation runs are stateless per upload. The SQLite audit log path is env-c
   writer in `backend/agent/audit.py` is the single place to swap in Postgres.
 
 ## Secrets
+
 Never commit `.env`. All keys live only in Railway/Cloudflare env settings and your local `.env`
 (gitignored).

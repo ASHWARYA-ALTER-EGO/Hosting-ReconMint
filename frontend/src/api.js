@@ -1,8 +1,24 @@
 // ReconMint API layer + mappers. Talks to the FastAPI backend and adapts its snake_case /
 // paise / lowercase-severity shapes into the camelCase shapes the pages render.
 
-const API_BASE =
-  (import.meta.env && import.meta.env.VITE_API_BASE_URL) || "http://localhost:8000";
+function resolveApiBase() {
+  const fromEnv = import.meta.env?.VITE_API_BASE_URL;
+  if (fromEnv) return String(fromEnv).replace(/\/$/, "");
+
+  if (
+    typeof window !== "undefined" &&
+    window.__RECONMINT_CONFIG__ &&
+    "apiBaseUrl" in window.__RECONMINT_CONFIG__
+  ) {
+    return String(window.__RECONMINT_CONFIG__.apiBaseUrl).replace(/\/$/, "");
+  }
+
+  // Production: same-origin (nginx on Railway proxies API routes to the backend).
+  if (import.meta.env?.PROD) return "";
+  return "http://localhost:8000";
+}
+
+const API_BASE = resolveApiBase();
 
 // ---- formatting ----------------------------------------------------------
 export function formatINR(n) {
@@ -59,6 +75,13 @@ async function req(path, opts = {}) {
   const isJson = (res.headers.get("content-type") || "").includes("application/json");
   const body = isJson ? await res.json() : await res.text();
   if (!res.ok) {
+    if (res.status === 405) {
+      throw new Error(
+        "HTTP 405 — API request hit the frontend server, not the backend. " +
+          "On Railway: set BACKEND_URL on the frontend service to your backend URL and redeploy " +
+          "(or set VITE_API_BASE_URL at build time to the backend URL)."
+      );
+    }
     const detail = (body && body.detail) || (body && body.error) || `HTTP ${res.status}`;
     throw new Error(detail);
   }
