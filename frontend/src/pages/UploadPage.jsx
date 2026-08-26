@@ -23,6 +23,51 @@ const PROGRESS_STEPS = [
   { id: 3, title: "Reconcile", subtitle: "Run matching engine" },
 ];
 
+// ─── Plain-English glossary for jargon that shows up in the trace ─────────
+// Keys are matched case-insensitively as whole words/phrases inside trace text.
+const JARGON = [
+  { term: "UTR", def: "Unique Transaction Reference — the bank's own ID number for a transfer. It's how a payment on the bank statement gets linked back to the same payment in your order records." },
+  { term: "paise-exact", def: "Matched down to the paisa (1/100 of a rupee) — not just \"close enough,\" but the exact same amount on both sides." },
+  { term: "deterministic", def: "This step follows a fixed rule and always gives the same answer for the same input — it isn't a guess or an AI judgment call." },
+  { term: "rules", def: "A fixed, written rule that was applied — the same logic runs every time, so the outcome is predictable and auditable." },
+  { term: "fuzzy recovery", def: "A second pass that catches payments which don't line up perfectly — for example, a slightly delayed settlement or a typo'd reference number — using tolerances instead of an exact match." },
+  { term: "T+2", def: "\"Transaction date plus 2 business days\" — the normal window for a payment to show up as settled." },
+  { term: "audit trail", def: "A permanent, timestamped log of every decision the agent made, so a human can review or challenge any of them later." },
+  { term: "schema", def: "The expected shape of a file — its columns, headers, and data types. \"Schema checked\" means the file's structure matched what was expected before any numbers were touched." },
+  { term: "triage", def: "Sorting each flagged record into a track: fix it automatically, explain it for a human to review, or escalate it as urgent." },
+  { term: "near-miss", def: "A payment that didn't match exactly on the first pass, but was close enough to investigate further." },
+];
+
+// Plain-English "what this stage does" copy, matched against the trace step's
+// title so it stays in sync with whatever the backend actually ran.
+const STAGE_EXPLAINERS = [
+  {
+    match: /ingest|validat/i,
+    icon: "fa-solid fa-inbox",
+    plain: "Reads all three files, lines up their columns, and checks that nothing is missing or malformed before any matching starts.",
+  },
+  {
+    match: /reconstruct|exact match/i,
+    icon: "fa-solid fa-equals",
+    plain: "Recalculates the fees your payment gateway should have charged, then pairs each order to its settlement and bank line using an exact reference number and amount match.",
+  },
+  {
+    match: /fuzzy/i,
+    icon: "fa-solid fa-magnifying-glass",
+    plain: "Goes back over anything left unmatched and looks for near-misses — a payment that landed a day or two late, or a reference number with a small typo — and links those up too.",
+  },
+  {
+    match: /triag/i,
+    icon: "fa-solid fa-sitemap",
+    plain: "Whatever still doesn't match gets sorted: some are auto-resolved, some get a plain-language explanation for you to review, and the riskiest ones are flagged for escalation.",
+  },
+  {
+    match: /verif|logg/i,
+    icon: "fa-solid fa-stamp",
+    plain: "Every figure the agent produced is checked against the source files one more time, and the full set of decisions is written to a permanent record you can audit later.",
+  },
+];
+
 function humanSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -34,6 +79,83 @@ function toChips(fileList) {
   return Array.from(fileList).map((file) => ({ id: `chip_${Date.now()}_${chipSeq++}`, file }));
 }
 
+// ─── InfoTip — small themed (?) tooltip for jargon terms ──────────────────
+function InfoTip({ label, children }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+  return (
+    <span ref={wrapRef} className="relative inline-flex items-baseline">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        onMouseEnter={() => setOpen(true)}
+        className="rm-mono inline-flex items-center gap-[3px] underline decoration-dotted underline-offset-[3px] font-semibold transition-colors duration-150"
+        style={{ color: "var(--rm-rust-deep)" }}
+      >
+        {label}
+        <span
+          className="inline-flex items-center justify-center rounded-full flex-shrink-0"
+          style={{ width: 13, height: 13, fontSize: 9, background: "var(--rm-rust-wash)", color: "var(--rm-rust-deep)", border: "1px solid var(--rm-rust)", lineHeight: 1 }}
+        >
+          ?
+        </span>
+      </button>
+      {open && (
+        <span
+          onMouseLeave={() => setOpen(false)}
+          className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-30 rm-panel-in"
+          style={{ width: 260 }}
+        >
+          <span
+            className="block rm-card-flat premium-shadow p-3.5 text-left"
+            style={{ background: "var(--rm-card)" }}
+          >
+            <span className="rm-body text-xs leading-relaxed block" style={{ color: "var(--rm-ink)" }}>{children}</span>
+          </span>
+          <span
+            className="block mx-auto"
+            style={{ width: 10, height: 10, marginTop: -6, transform: "rotate(45deg)", background: "var(--rm-card)", borderRight: "1px solid var(--rm-line)", borderBottom: "1px solid var(--rm-line)" }}
+          />
+        </span>
+      )}
+    </span>
+  );
+}
+
+// Wraps any glossary term found in a plain string with an InfoTip, splitting
+// on the first match only (keeps trace copy readable rather than cluttered).
+function withJargonTips(text) {
+  if (!text) return text;
+  for (const { term, def } of JARGON) {
+    const re = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "i");
+    const m = text.match(re);
+    if (m) {
+      const idx = m.index;
+      const before = text.slice(0, idx);
+      const match = text.slice(idx, idx + m[0].length);
+      const after = text.slice(idx + m[0].length);
+      return (
+        <>
+          {before}
+          <InfoTip label={match}>{def}</InfoTip>
+          {withJargonTips(after)}
+        </>
+      );
+    }
+  }
+  return text;
+}
+
+function explainerFor(title) {
+  return STAGE_EXPLAINERS.find((s) => s.match.test(title || "")) || null;
+}
+
 export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDashboard }) {
   const [files, setFiles] = useState({ orders: null, settlement: null, bank: null });
   const [error, setError] = useState(null);
@@ -41,6 +163,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
   const [runResult, setRunResult] = useState(null);
   const [revealed, setRevealed] = useState(0);
   const [showInfo, setShowInfo] = useState(true);
+  const [showTraceExplainer, setShowTraceExplainer] = useState(true);
 
   // ── explicit labeling state ──────────────────────────────────
   const [slotDragOver, setSlotDragOver] = useState(null); // slot id currently dragged-over
@@ -350,6 +473,19 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
         }
         .rm-chip:active { cursor: grabbing; }
         .rm-chip.dragging { opacity: 0.4; }
+
+        /* ─── Trace explainer ─────────────────────────────────── */
+        .rm-stage-row {
+          display: flex; gap: 14px; padding: 14px 4px;
+          border-top: 1px solid var(--rm-line-soft);
+        }
+        .rm-stage-row:first-child { border-top: none; }
+        .rm-stage-icon {
+          width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center;
+          background: var(--rm-card-alt); border: 1px solid var(--rm-line); color: var(--rm-rust-deep);
+          font-size: 13px;
+        }
       `}</style>
 
       <div className="max-w-6xl mx-auto p-10 lg:p-12 relative" style={{ zIndex: 1 }}>
@@ -636,7 +772,8 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
           const m = runResult.meta;
           return (
             <div className="rm-card-flat p-8 premium-shadow">
-              <div className="flex items-center justify-between mb-6">
+              {/* ── Summary header, written for a non-technical reader ── */}
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors duration-500" style={{ background: "var(--rm-ink)", color: "var(--rm-card)" }}>
                     <i className={`fa-solid ${done ? "fa-circle-check" : "fa-microchip"}`}></i>
@@ -651,7 +788,17 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
                       )}
                     </div>
                     <div className="rm-body text-xs mt-0.5" style={{ color: "var(--rm-ink-soft)" }}>
-                      {done ? `${m.settlement_active} records reconciled in ${m.elapsed_seconds}s · ${m.exceptions_total} exceptions` : "Autonomous: plan → match → fuzzy → triage → verify"}
+                      {done ? (
+                        <>
+                          {m.settlement_active} payment records were checked against your bank statement in {m.elapsed_seconds}s.{" "}
+                          {m.exceptions_total} of them didn't line up automatically and need a look —{" "}
+                          <InfoTip label="what's an exception?">
+                            An "exception" is any payment where the agent couldn't confirm both sides matched perfectly — a missing entry, a different amount, or a payment it can't yet explain. It doesn't mean money is missing; it means it needs a human to confirm.
+                          </InfoTip>.
+                        </>
+                      ) : (
+                        "Autonomous: plan → match → fuzzy → triage → verify"
+                      )}
                     </div>
                   </div>
                 </div>
@@ -661,11 +808,78 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
                   </button>
                 )}
               </div>
-              <AgentTrace trace={displaySteps} label="Live reconciliation trace" />
+
               {done && (
-                <div className="mt-5 flex items-center gap-2 text-xs font-medium rounded-lg px-3 py-2 w-fit animate-[fadeSlideIn_0.4s_ease-out]" style={{ background: "var(--rm-moss-wash)", border: "1px solid var(--rm-moss)", color: "var(--rm-ink)" }}>
-                  <i className="fa-solid fa-shield-halved" style={{ color: "var(--rm-moss)" }}></i>
-                  <span className="rm-body">Every stage deterministic and audited — {runResult.decisions_logged} decisions logged.</span>
+                <p className="rm-body text-xs leading-relaxed mb-5" style={{ color: "var(--rm-ink-soft)" }}>
+                  In plain terms: the agent read all three files, recalculated the fees your gateway should have charged, matched
+                  each payment across orders, settlement and bank records, and only flagged the {m.exceptions_total} that genuinely
+                  need a decision from you. Nothing below was estimated or guessed — every stage is either an exact calculation or a
+                  written rule, and the full chain is logged for audit.
+                </p>
+              )}
+
+              <AgentTrace trace={displaySteps} label="Live reconciliation trace" />
+
+              {/* ── "What each stage means" — plain-English breakdown, driven by the real trace ── */}
+              {full.length > 0 && (
+                <div className="mt-6 rounded-xl overflow-hidden" style={{ border: "1px solid var(--rm-line)", background: "var(--rm-card-alt)" }}>
+                  <button
+                    onClick={() => setShowTraceExplainer((v) => !v)}
+                    className="w-full flex items-center justify-between px-5 py-3.5 transition-colors duration-150"
+                  >
+                    <span className="rm-label text-[11px] font-semibold flex items-center gap-2" style={{ color: "var(--rm-rust-deep)" }}>
+                      <i className="fa-regular fa-lightbulb"></i> What each stage actually did
+                    </span>
+                    <i className={`fa-solid fa-chevron-down text-xs transition-transform duration-200`} style={{ color: "var(--rm-ink-soft)", transform: showTraceExplainer ? "rotate(180deg)" : "none" }}></i>
+                  </button>
+                  {showTraceExplainer && (
+                    <div className="px-5 pb-5 pt-1 animate-[fadeSlideIn_0.25s_ease-out]">
+                      {displaySteps.map((step, i) => {
+                        const title = step.title || step.name || `Stage ${i + 1}`;
+                        const rawDesc = step.subtitle || step.description || step.detail || "";
+                        const info = explainerFor(title);
+                        return (
+                          <div key={i} className="rm-stage-row">
+                            <div className="rm-stage-icon">
+                              <i className={info ? info.icon : "fa-solid fa-gear"}></i>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5">
+                                <span className="rm-heading-sm text-[13px] font-semibold">{title}</span>
+                                {step.ms != null && (
+                                  <span className="rm-mono text-[10px]" style={{ color: "var(--rm-ink-soft)" }}>{step.ms}ms</span>
+                                )}
+                              </div>
+                              {rawDesc && (
+                                <div className="rm-mono text-[11px] mt-0.5" style={{ color: "var(--rm-ink-soft)" }}>
+                                  {withJargonTips(rawDesc)}
+                                </div>
+                              )}
+                              {info && (
+                                <p className="rm-body text-xs leading-relaxed mt-1.5" style={{ color: "var(--rm-ink)" }}>
+                                  {info.plain}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {done && (
+                <div className="mt-5 flex items-start gap-2.5 text-xs font-medium rounded-lg px-4 py-3 w-fit max-w-full animate-[fadeSlideIn_0.4s_ease-out]" style={{ background: "var(--rm-moss-wash)", border: "1px solid var(--rm-moss)", color: "var(--rm-ink)" }}>
+                  <i className="fa-solid fa-shield-halved mt-0.5" style={{ color: "var(--rm-moss)" }}></i>
+                  <span className="rm-body leading-relaxed">
+                    Every stage above is either an exact calculation or a written, repeatable rule — nothing here was guessed.{" "}
+                    {runResult.decisions_logged} individual decisions were written to the{" "}
+                    <InfoTip label="audit trail">
+                      A permanent, timestamped log of every decision the agent made — which files it read, which rule fired, and why — so a human can review or challenge any single one of them later.
+                    </InfoTip>{" "}
+                    so any figure here can be traced back to the exact rows it came from.
+                  </span>
                 </div>
               )}
             </div>

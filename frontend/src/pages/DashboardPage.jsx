@@ -36,6 +36,30 @@ const C = {
   t40: "#8A9478",
 };
 
+/* ————————————————————————————————————————————————
+   BENTO SPAN SYSTEM
+   Each card declares a "kind" (stat / highlight-stat / heavy /
+   chart / strip / full) and we resolve that to a set of
+   col-span / row-span utility classes per breakpoint. Spans are
+   chosen so that every row sums exactly to the column count at
+   every breakpoint (2 cols mobile, 4 cols tablet, 6 cols desktop)
+   — that's what keeps the grid gapless without hardcoding classes
+   per individual card instance.
+   ———————————————————————————————————————————————— */
+const BENTO_SPANS = {
+  stat: "col-span-1 row-span-1 md:col-span-1 lg:col-span-1",
+  "stat-wide": "col-span-2 row-span-1 md:col-span-4 lg:col-span-2",
+  heavy: "col-span-2 row-span-2 md:col-span-4 lg:col-span-4",
+  strip: "col-span-2 row-span-1 md:col-span-4 lg:col-span-2 lg:row-span-2",
+  "chart-half": "col-span-2 row-span-2 md:col-span-2 lg:col-span-3",
+  "chart-full": "col-span-2 row-span-2 md:col-span-4 lg:col-span-6",
+  list: "col-span-2 row-span-2 md:col-span-4 lg:col-span-6",
+};
+
+function bentoSpan(kind) {
+  return BENTO_SPANS[kind] || BENTO_SPANS.stat;
+}
+
 /**
  * PremiumCard — ledger-sheet hover treatment: a soft ink/red spotlight that
  * tracks the cursor, a lift, a sharpened shadow, and a punched "hole" corner
@@ -68,7 +92,7 @@ function PremiumCard({ children, className = "", style = {}, as: Tag = "div", pu
         if (t) handleMove(t.clientX, t.clientY);
       }}
       onTouchEnd={() => setHovered(false)}
-      className={`group/card relative rounded-md border overflow-hidden touch-manipulation font-mono ${className}`}
+      className={`group/card relative rounded-md border overflow-hidden touch-manipulation font-mono flex flex-col ${className}`}
       style={{
         background: C.card,
         borderColor: hovered ? C.ink : C.border,
@@ -109,7 +133,7 @@ function PremiumCard({ children, className = "", style = {}, as: Tag = "div", pu
           style={{ border: `1px solid ${C.borderStrong}` }}
         />
       )}
-      <div className="relative">{children}</div>
+      <div className="relative flex-1 flex flex-col min-h-0">{children}</div>
     </Tag>
   );
 }
@@ -258,12 +282,12 @@ function EmptyState({ onGoUpload }) {
   );
 }
 
-function MetricCard({ title, subtitle, value, footnote, tone, numeric, decimals = 0, delay = 0 }) {
+function MetricCard({ title, subtitle, value, footnote, tone, numeric, decimals = 0, delay = 0, spanClass = "" }) {
   const animated = numeric !== undefined ? useCountUp(numeric, { decimals }) : null;
   const reveal = useReveal(delay);
   return (
     <PremiumCard
-      className={`p-5 flex flex-col justify-between active:scale-[0.985] ${reveal}`}
+      className={`p-5 justify-between active:scale-[0.985] ${reveal} ${spanClass}`}
       style={{ transitionProperty: "opacity, transform, box-shadow, border-color" }}
     >
       <div>
@@ -283,7 +307,7 @@ function MetricCard({ title, subtitle, value, footnote, tone, numeric, decimals 
   );
 }
 
-function AccuracyCard({ acc, onFirstInteract }) {
+function AccuracyCard({ acc, onFirstInteract, spanClass = "" }) {
   const pct = (n) => `${Math.round(n * 100)}%`;
   const stats = [
     ["Precision", pct(acc.precision), acc.precision],
@@ -291,7 +315,7 @@ function AccuracyCard({ acc, onFirstInteract }) {
     ["F1", acc.f1.toFixed(2), acc.f1],
   ];
   return (
-    <PremiumCard className="p-6">
+    <PremiumCard className={`p-6 ${spanClass}`}>
       <div className="flex items-center gap-2 mb-5">
         <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.ink }}>Detection Accuracy</h2>
         <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded border" style={{ color: C.t40, background: C.bg, borderColor: C.border }}>vs ground truth</span>
@@ -315,7 +339,7 @@ function AccuracyCard({ acc, onFirstInteract }) {
           </div>
         ))}
       </div>
-      <div className="flex items-center justify-between text-xs rounded-md p-3 border" style={{ background: C.bg, borderColor: C.border }}>
+      <div className="flex items-center justify-between text-xs rounded-md p-3 border mt-auto" style={{ background: C.bg, borderColor: C.border }}>
         <span style={{ color: C.t60 }}><span className="font-semibold" style={{ color: C.moss }}>{acc.false_negatives}</span> missed (false negatives)</span>
         <span style={{ color: C.t60 }}><span className="font-semibold" style={{ color: C.ochre }}>{acc.false_positives}</span> over-flagged (false positives)</span>
       </div>
@@ -346,7 +370,7 @@ const SEGMENT_COLORS = {
   Exceptions: C.red,
 };
 
-function StackedBreakdown({ segments, total, onFirstInteract }) {
+function StackedBreakdown({ segments, total, onFirstInteract, spanClass = "" }) {
   const [active, setActive] = useState(null);
   const activeSeg = segments.find((s) => s.label === active);
 
@@ -356,7 +380,7 @@ function StackedBreakdown({ segments, total, onFirstInteract }) {
   };
 
   return (
-    <PremiumCard className="p-6">
+    <PremiumCard className={`p-6 ${spanClass}`}>
       <div className="flex items-center gap-2 mb-6">
         <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.ink }}>Reconciliation Breakdown</h2>
       </div>
@@ -530,7 +554,7 @@ function WaterfallBar({ step, onFirstInteract }) {
   );
 }
 
-function Waterfall({ bd, onFirstInteract }) {
+function Waterfall({ bd, onFirstInteract, spanClass = "" }) {
   const steps = buildWaterfall(bd);
   const scrollRef = useRef(null);
   const [dragging, setDragging] = useState(false);
@@ -550,7 +574,7 @@ function Waterfall({ bd, onFirstInteract }) {
   const onPointerUp = () => setDragging(false);
 
   return (
-    <PremiumCard className="p-6 flex flex-col">
+    <PremiumCard className={`p-6 ${spanClass}`}>
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.ink }}>Record Reconciliation Waterfall</h2>
         <span className="text-[10px] uppercase tracking-wide hidden sm:inline" style={{ color: C.t40 }}>drag / swipe to explore</span>
@@ -574,19 +598,22 @@ function Waterfall({ bd, onFirstInteract }) {
   );
 }
 
-function FooterStrip({ meta }) {
+function FooterStrip({ meta, spanClass = "", stacked = false }) {
   const stats = [
     { icon: "fa-solid fa-microchip", bg: "rgba(31,42,26,0.06)", color: C.ink, label: "AI cost (this run)", value: `$${(meta.llm_cost_usd_total || 0).toFixed(4)}` },
     { icon: "fa-solid fa-brain", bg: "rgba(184,134,59,0.12)", color: C.ochre, label: "Model", value: meta.llm_calls ? "gpt-4o-mini" : "not used" },
     { icon: "fa-regular fa-circle-check", bg: "rgba(75,123,78,0.12)", color: C.moss, label: "AI explanations", value: `${meta.llm_verified_count || 0} verified / ${meta.llm_calls || 0} calls` },
   ];
   return (
-    <PremiumCard as="footer" className="p-2 flex flex-col sm:flex-row items-stretch sm:items-center">
+    <PremiumCard
+      as="footer"
+      className={`p-2 ${stacked ? "flex-col justify-center gap-1" : "flex-col sm:flex-row items-stretch sm:items-center"} ${spanClass}`}
+    >
       {stats.map((s, i) => (
         <div
           key={s.label}
-          className="flex items-center gap-3 px-4 py-2.5 flex-1 rounded-md transition-colors duration-150 touch-manipulation"
-          style={{ borderLeft: i > 0 ? `1px solid ${C.border}` : "none" }}
+          className={`flex items-center gap-3 px-4 py-2.5 flex-1 rounded-md transition-colors duration-150 touch-manipulation ${stacked ? "w-full" : ""}`}
+          style={{ borderLeft: !stacked && i > 0 ? `1px solid ${C.border}` : "none", borderTop: stacked && i > 0 ? `1px solid ${C.border}` : "none" }}
         >
           <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: s.bg, color: s.color }}>
             <i className={s.icon}></i>
@@ -659,6 +686,11 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
           100% { transform: scale(1.9); opacity: 0; }
         }
         .dash-pulse-ring { animation: dashPulseRing 1.8s ${EASE} infinite; }
+        .bento-grid {
+          display: grid;
+          grid-auto-flow: dense;
+          grid-auto-rows: minmax(150px, auto);
+        }
         @media (prefers-reduced-motion: reduce) {
           .dash-float, .dash-grow, .dash-section, .dash-pulse-ring { animation: none !important; }
         }
@@ -718,41 +750,51 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
-        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-          <MetricCard title="Match Rate" subtitle="(Reconciled)" value={`${m.reconciled_rate_pct}%`} numeric={m.reconciled_rate_pct} footnote={`${m.match_rate_pct}% matched (incl. fuzzy)`} delay={0} />
-          <MetricCard title="Records Processed" value={`${m.settlement_active}`} numeric={m.settlement_active} footnote={`${m.dataset_size} rows ingested`} delay={40} />
-          <MetricCard title="Processing Time" value={`${m.elapsed_seconds}s`} numeric={m.elapsed_seconds} footnote={`Throughput: ${Math.round(m.throughput_rps).toLocaleString("en-IN")} rec/s`} delay={80} />
-          <MetricCard title="Amount Reconciled" value={amount} footnote="net settled, verified" delay={120} />
-          <MetricCard title="Exceptions" subtitle="(Needs review)" value={`${m.exceptions_total}`} numeric={m.exceptions_total} footnote={`${exceptionsPct}% of records`} tone="negative" delay={160} />
-        </section>
+      <div className="flex-1 overflow-y-auto p-6 relative">
+        {/*
+          ─── BENTO GRID ─────────────────────────────────────────
+          2 cols mobile / 4 cols tablet / 6 cols desktop.
+          Every card's span is resolved from its content "kind"
+          (stat / stat-wide / heavy / chart-half / chart-full /
+          strip / list) via bentoSpan(). Spans are chosen so each
+          row sums exactly to the column count at every breakpoint
+          — no ragged edges, no empty cells — and grid-flow-dense
+          is set as a safety net for any remaining gaps.
+        */}
+        <div className="bento-grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 dash-section">
+          <MetricCard spanClass={bentoSpan("stat")} title="Match Rate" subtitle="(Reconciled)" value={`${m.reconciled_rate_pct}%`} numeric={m.reconciled_rate_pct} footnote={`${m.match_rate_pct}% matched (incl. fuzzy)`} delay={0} />
+          <MetricCard spanClass={bentoSpan("stat")} title="Records Processed" value={`${m.settlement_active}`} numeric={m.settlement_active} footnote={`${m.dataset_size} rows ingested`} delay={40} />
+          <MetricCard spanClass={bentoSpan("stat")} title="Processing Time" value={`${m.elapsed_seconds}s`} numeric={m.elapsed_seconds} footnote={`Throughput: ${Math.round(m.throughput_rps).toLocaleString("en-IN")} rec/s`} delay={80} />
+          <MetricCard spanClass={bentoSpan("stat")} title="Amount Reconciled" value={amount} footnote="net settled, verified" delay={120} />
+          <MetricCard spanClass={bentoSpan("stat-wide")} title="Exceptions" subtitle="(Needs review)" value={`${m.exceptions_total}`} numeric={m.exceptions_total} footnote={`${exceptionsPct}% of records`} tone="negative" delay={160} />
 
-        {evalData && (
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 dash-section">
-            <AccuracyCard acc={evalData.accuracy} onFirstInteract={onFirstInteract} />
-            <FooterStrip meta={m} />
-          </section>
-        )}
+          {evalData && (
+            <>
+              <AccuracyCard spanClass={bentoSpan("heavy")} acc={evalData.accuracy} onFirstInteract={onFirstInteract} />
+              <FooterStrip spanClass={bentoSpan("strip")} meta={m} stacked />
+            </>
+          )}
 
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 dash-section items-start" style={{ animationDelay: "60ms" }}>
-          <StackedBreakdown segments={segments} total={bdTotal} onFirstInteract={onFirstInteract} />
+          <StackedBreakdown spanClass={bentoSpan("chart-half")} segments={segments} total={bdTotal} onFirstInteract={onFirstInteract} />
           {evalData ? (
-            <Waterfall bd={evalData.breakdown} onFirstInteract={onFirstInteract} />
+            <Waterfall spanClass={bentoSpan("chart-half")} bd={evalData.breakdown} onFirstInteract={onFirstInteract} />
           ) : (
-            <PremiumCard className="p-6 flex items-center justify-center text-sm text-center min-h-[220px]" style={{ color: C.t40 }}>
+            <PremiumCard className={`p-6 items-center justify-center text-sm text-center min-h-[220px] ${bentoSpan("chart-half")}`} style={{ color: C.t40 }}>
               Full breakdown &amp; accuracy are shown for demo runs (which have ground truth).
             </PremiumCard>
           )}
-        </section>
 
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 dash-section" style={{ animationDelay: "120ms" }}>
-          <FeeDonut fees={m.fee_totals_paise} />
-          {!evalData && <FooterStrip meta={m} />}
-        </section>
+          <div className={bentoSpan(evalData ? "chart-full" : "chart-half")}>
+            <FeeDonut fees={m.fee_totals_paise} />
+          </div>
+          {!evalData && (
+            <FooterStrip spanClass={bentoSpan("chart-half")} meta={m} />
+          )}
 
-        <section className="dash-section" style={{ animationDelay: "180ms" }}>
-          <SourceFilesCard isDemo={run.isDemo} height={380} />
-        </section>
+          <div className={bentoSpan("list")}>
+            <SourceFilesCard isDemo={run.isDemo} height={380} />
+          </div>
+        </div>
       </div>
     </div>
   );
