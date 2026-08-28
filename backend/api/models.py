@@ -38,6 +38,7 @@ class RunMeta(BaseModel):
     llm_calls: int = 0
     llm_verified_count: int = 0
     llm_cost_usd_total: float = 0.0
+    repair_agent: dict = {}
 
 
 class SeverityCounts(BaseModel):
@@ -72,6 +73,9 @@ class ExceptionItem(BaseModel):
     llm_model: str | None = None
     date: str | None = None
     ledger: dict | None = None
+    strategy_attempts: list[dict] | None = None
+    accepted_strategy: str | None = None
+    checklist_state: dict | None = None
 
 
 class ExceptionList(BaseModel):

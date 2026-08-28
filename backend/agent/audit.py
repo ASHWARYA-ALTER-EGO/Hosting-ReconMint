@@ -16,6 +16,7 @@ mounted volume for persistence; the ephemeral default is fine for the demo).
 
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 from contextlib import contextmanager
@@ -81,6 +82,16 @@ _EXPECTED_DECISION_COLS = {
     "llm_explanation": "TEXT", "llm_source": "TEXT", "llm_verified": "INTEGER",
     "llm_model": "TEXT", "llm_cost_usd": "REAL", "llm_latency_ms": "REAL",
     "ledger_json": "TEXT", "record_date": "TEXT",
+    # Resolution audit trail: which reason chip + optional note the human recorded,
+    # plus when. Missing on databases created before this migration.
+    "resolution_reason": "TEXT", "resolution_note": "TEXT", "resolved_at": "TEXT",
+    # Repair Agent audit trail: JSON list of every strategy attempt made for this record,
+    # + the accepted strategy name (null if the row stayed unmatched).
+    "strategy_attempts_json": "TEXT", "accepted_strategy": "TEXT",
+    # Diagnose-tab checklist state persists across sessions so an operator can close
+    # the drawer, reopen it, and see which investigation steps they already ticked.
+    # Shape: {"0": true, "1": true} keyed by playbook step index.
+    "checklist_state_json": "TEXT",
 }
 
 
@@ -142,8 +153,9 @@ class AuditLog:
                    (run_id, record_ref, record_type, match_method, confidence, resolution,
                     triage_action, needs_human, severity, amount_paise, reason, explanation,
                     llm_explanation, llm_source, llm_verified, llm_model,
-                    llm_cost_usd, llm_latency_ms, ledger_json, record_date, created_at)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    llm_cost_usd, llm_latency_ms, ledger_json, record_date,
+                    strategy_attempts_json, accepted_strategy, created_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 [
                     (
                         run_id, r.get("record_ref"), r.get("record_type"), r.get("match_method"),
@@ -153,7 +165,9 @@ class AuditLog:
                         r.get("explanation"), r.get("llm_explanation"), r.get("llm_source"),
                         (None if r.get("llm_verified") is None else (1 if r.get("llm_verified") else 0)),
                         r.get("llm_model"), r.get("llm_cost_usd"), r.get("llm_latency_ms"),
-                        r.get("ledger_json"), r.get("record_date"), _now(),
+                        r.get("ledger_json"), r.get("record_date"),
+                        r.get("strategy_attempts_json"), r.get("accepted_strategy"),
+                        _now(),
                     )
                     for r in rows
                 ],
@@ -201,10 +215,108 @@ class AuditLog:
                 (explanation, source, 1 if verified else 0, model, cost, latency, decision_id),
             )
 
-    def resolve(self, decision_id: int) -> bool:
-        """Mark one decision resolved. Returns True if a row was updated."""
+    def save_razorpay_verification(self, run_id: str, verification: dict) -> None:
+        """Persist the live Razorpay API handshake as a run-scoped JSON blob so the
+        Dashboard can show 'Razorpay-verified' long after the trace has scrolled away.
+        Uses a tiny key/value table so we don't touch the runs schema."""
+        payload = json.dumps(verification)
+        with connect(self.path) as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS run_extras (
+                run_id TEXT NOT NULL, key TEXT NOT NULL, value TEXT,
+                created_at TEXT NOT NULL, PRIMARY KEY(run_id, key))""")
+            conn.execute(
+                """INSERT OR REPLACE INTO run_extras (run_id, key, value, created_at)
+                   VALUES (?, 'razorpay_verification', ?, ?)""",
+                (run_id, payload, _now()),
+            )
+
+    def get_razorpay_verification(self, run_id: str) -> dict | None:
+        with connect(self.path) as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS run_extras (
+                run_id TEXT NOT NULL, key TEXT NOT NULL, value TEXT,
+                created_at TEXT NOT NULL, PRIMARY KEY(run_id, key))""")
+            row = conn.execute(
+                "SELECT value FROM run_extras WHERE run_id=? AND key='razorpay_verification'",
+                (run_id,),
+            ).fetchone()
+        if not row:
+            return None
+        try:
+            return json.loads(row["value"])
+        except (ValueError, TypeError):
+            return None
+
+    def resolve(self, decision_id: int, reason: str | None = None,
+                note: str | None = None) -> bool:
+        """Mark one decision resolved, recording the reason chip + optional note the human chose.
+
+        Returns True if a row was updated. The reason is one of confirmed / override /
+        false_positive / escalated (validated at the API layer); an unknown value is still
+        stored so the audit trail keeps a record of exactly what was sent.
+        """
         with connect(self.path) as conn:
             cur = conn.execute(
-                "UPDATE decisions SET resolved=1 WHERE id=? AND needs_human=1", (decision_id,)
+                """UPDATE decisions
+                   SET resolved=1, resolution_reason=?, resolution_note=?, resolved_at=?
+                   WHERE id=? AND needs_human=1""",
+                (reason, note, _now(), decision_id),
             )
             return cur.rowcount > 0
+
+    def set_checklist_state(self, decision_id: int, state: dict) -> bool:
+        """Persist which Diagnose-tab checklist steps the operator has ticked. Idempotent."""
+        payload = json.dumps(state or {})
+        with connect(self.path) as conn:
+            cur = conn.execute(
+                "UPDATE decisions SET checklist_state_json=? WHERE id=?",
+                (payload, decision_id),
+            )
+            return cur.rowcount > 0
+
+    def get_checklist_state(self, decision_id: int) -> dict:
+        with connect(self.path) as conn:
+            row = conn.execute(
+                "SELECT checklist_state_json FROM decisions WHERE id=?", (decision_id,),
+            ).fetchone()
+        if not row or not row["checklist_state_json"]:
+            return {}
+        try:
+            return json.loads(row["checklist_state_json"]) or {}
+        except (ValueError, TypeError):
+            return {}
+
+    def unresolve(self, decision_id: int) -> bool:
+        with connect(self.path) as conn:
+            cur = conn.execute(
+                """UPDATE decisions
+                   SET resolved=0, resolution_reason=NULL, resolution_note=NULL,
+                       resolved_at=NULL
+                   WHERE id=?""",
+                (decision_id,),
+            )
+            return cur.rowcount > 0
+
+    def resolution_summary(self, run_id: str) -> dict:
+        """Counts of resolved decisions grouped by reason for this run."""
+        with connect(self.path) as conn:
+            rows = conn.execute(
+                """SELECT COALESCE(resolution_reason, 'unspecified') AS reason,
+                          COUNT(*) AS n
+                   FROM decisions
+                   WHERE run_id=? AND resolved=1
+                   GROUP BY resolution_reason""",
+                (run_id,),
+            ).fetchall()
+            total = conn.execute(
+                "SELECT COUNT(*) AS n FROM decisions WHERE run_id=? AND needs_human=1",
+                (run_id,),
+            ).fetchone()["n"]
+            resolved_total = conn.execute(
+                "SELECT COUNT(*) AS n FROM decisions WHERE run_id=? AND resolved=1",
+                (run_id,),
+            ).fetchone()["n"]
+        buckets = {"confirmed": 0, "override": 0, "false_positive": 0,
+                   "escalated": 0, "unspecified": 0}
+        for r in rows:
+            buckets[r["reason"]] = buckets.get(r["reason"], 0) + r["n"]
+        return {"total_exceptions": total, "resolved": resolved_total, "by_reason": buckets}

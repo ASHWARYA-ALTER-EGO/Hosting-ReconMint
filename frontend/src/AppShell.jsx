@@ -24,7 +24,13 @@ export default function AppShell() {
   const [run, setRun] = useState(loadStoredRun); // { runId, meta, isDemo, severityCounts }
   const [evalData, setEvalData] = useState(null);
   const [toast, setToast] = useState(null);
+  const [askPreload, setAskPreload] = useState(null); // { question, token } — one-shot handoff to AskPage
   const toastTimer = useRef(null);
+
+  const askAbout = useCallback((question) => {
+    setAskPreload({ question, token: Date.now() });
+    setView("ask");
+  }, []);
 
   useEffect(() => {
     try {
@@ -51,13 +57,23 @@ export default function AppShell() {
         severityCounts: resp.severity_counts,
         isDemo,
       });
-      if (isDemo) {
-        try {
-          setEvalData(await api.getEvalDemo());
-        } catch {
+      // For every run (demo or uploaded) fetch the mutually-exclusive breakdown so
+      // the Waterfall + StackedBreakdown always render from real decisions.
+      // Demo runs additionally get the eval harness (precision/recall vs ground truth).
+      try {
+        const [breakdown, evalRes] = await Promise.all([
+          api.getRunBreakdown(resp.run_id).catch(() => null),
+          isDemo ? api.getEvalDemo().catch(() => null) : Promise.resolve(null),
+        ]);
+        if (evalRes) {
+          if (breakdown) evalRes.breakdown = breakdown;
+          setEvalData(evalRes);
+        } else if (breakdown) {
+          setEvalData({ breakdown });
+        } else {
           setEvalData(null);
         }
-      } else {
+      } catch {
         setEvalData(null);
       }
       showToast(
@@ -115,10 +131,14 @@ export default function AppShell() {
           />
         )}
         {view === "exceptions" && (
-          <ExceptionsPage run={run} showToast={showToast} onGoUpload={() => setView("upload")} />
+          <ExceptionsPage run={run} showToast={showToast}
+            onGoUpload={() => setView("upload")}
+            onAskAbout={askAbout} />
         )}
         {view === "ask" && (
-          <AskPage run={run} showToast={showToast} onGoUpload={() => setView("upload")} />
+          <AskPage run={run} showToast={showToast}
+            onGoUpload={() => setView("upload")}
+            preload={askPreload} />
         )}
       </main>
       <Toast toast={toast} onClose={() => setToast(null)} />

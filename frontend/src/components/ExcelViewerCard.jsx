@@ -51,12 +51,35 @@ function colLabel(n) {
   return s;
 }
 
-// Accepts "C", "c", or a numeric/string index and returns a 0-based column index.
-function resolveColumnIndex(focusColumn) {
+// Semantic column keys the exceptions page emits, mapped to header substrings that would
+// appear in the real settlement/bank/orders spreadsheets. First match wins.
+const SEMANTIC_COLUMN_ALIASES = {
+  id: ["payment_id", "payment id", "pay id", "utr", "reference", "ref"],
+  amount: ["amount", "net", "credit", "settled", "value"],
+  date: ["date", "settled_date", "settlement_date", "credited_at", "created_at", "timestamp"],
+  category: ["reason", "category", "status"],
+  severity: ["severity"],
+  matchMethod: ["match", "method"],
+  confidence: ["confidence", "score"],
+  status: ["status", "resolution"],
+};
+
+// Accepts "C", "c", a numeric/string index, or a semantic key resolved against `grid` headers.
+function resolveColumnIndex(focusColumn, grid = null) {
   if (focusColumn === null || focusColumn === undefined || focusColumn === "") return null;
   if (typeof focusColumn === "number") return focusColumn;
   const s = String(focusColumn).trim();
   if (/^\d+$/.test(s)) return parseInt(s, 10);
+  // Try semantic key → header lookup against row 0.
+  const aliases = SEMANTIC_COLUMN_ALIASES[s.toLowerCase()];
+  if (aliases && grid && grid.length > 0) {
+    const header = grid[0].map((h) => String(h).toLowerCase());
+    for (const alias of aliases) {
+      const i = header.findIndex((h) => h.includes(alias));
+      if (i >= 0) return i;
+    }
+  }
+  // Fall back to A1-style letters.
   const letters = s.toUpperCase().replace(/[^A-Z]/g, "");
   if (!letters) return null;
   let idx = 0;
@@ -110,6 +133,7 @@ export default function ExcelViewerCard({
   height = 420,
   focusRow = null,
   focusColumn = null,
+  focusRowId = null,      // string — search the sheet for this value and jump to that row
   focusToken = null,
   onFocusHandled,
 }) {
@@ -232,10 +256,27 @@ export default function ExcelViewerCard({
 
   // Jump to + highlight the requested row/column whenever they (or focusToken) change.
   useEffect(() => {
-    if (!workbook || focusRow === null || focusRow === undefined) return;
-
-    const rowIdx = focusRow - 1; // grid is 0-based, row 1 = first data row
-    const colIdx = resolveColumnIndex(focusColumn);
+    if (!workbook) return;
+    let rowIdx = null;
+    // Prefer a text ID search when provided — this is what the exceptions/dashboard
+    // "Open in source file" flow uses: pass the payment id, find the row that contains it.
+    if (focusRowId !== null && focusRowId !== undefined && String(focusRowId).length) {
+      const needle = String(focusRowId).trim().toLowerCase();
+      // header row is row 0; start at 1
+      for (let r = 1; r < grid.length; r++) {
+        const row = grid[r];
+        for (let c = 0; c < row.length; c++) {
+          if (String(row[c]).trim().toLowerCase() === needle) { rowIdx = r; break; }
+        }
+        if (rowIdx !== null) break;
+      }
+      if (rowIdx === null) return;
+    } else if (focusRow !== null && focusRow !== undefined) {
+      rowIdx = focusRow; // 0-based including header row 0
+    } else {
+      return;
+    }
+    const colIdx = resolveColumnIndex(focusColumn, grid);
 
     if (rowIdx < 0 || rowIdx >= grid.length) return;
 
@@ -255,7 +296,7 @@ export default function ExcelViewerCard({
       return () => clearTimeout(t);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workbook, activeSheetIndex, focusRow, focusColumn, focusToken, grid.length]);
+  }, [workbook, activeSheetIndex, focusRow, focusRowId, focusColumn, focusToken, grid.length]);
 
   const clearSelection = () => setSelected(null);
 
@@ -276,9 +317,9 @@ export default function ExcelViewerCard({
 
       <style>{`
         @keyframes evc-cell-pulse {
-          0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.55), 0 0 0 0 rgba(16,185,129,0.0); }
-          40%  { box-shadow: 0 0 0 4px rgba(16,185,129,0.28), 0 0 18px 4px rgba(16,185,129,0.35); }
-          100% { box-shadow: 0 0 0 2px rgba(16,185,129,0.45), 0 0 0 0 rgba(16,185,129,0.0); }
+          0%   { box-shadow: 0 0 0 0 rgba(181,67,47,0.65), 0 0 0 0 rgba(181,67,47,0.0); }
+          40%  { box-shadow: 0 0 0 4px rgba(181,67,47,0.32), 0 0 18px 4px rgba(181,67,47,0.42); }
+          100% { box-shadow: 0 0 0 2px rgba(181,67,47,0.55), 0 0 0 0 rgba(181,67,47,0.0); }
         }
         @keyframes evc-row-sweep {
           0%   { background-position: -120% 0; }
@@ -290,20 +331,27 @@ export default function ExcelViewerCard({
           100% { transform: scale(1); }
         }
         .evc-cell-focused {
-          animation: evc-cell-pulse 1.05s cubic-bezier(0.22, 1, 0.36, 1) 1;
+          animation: evc-cell-pulse 1.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
           position: relative;
           z-index: 5;
+          background: rgba(181,67,47,0.18) !important;
+          outline: 2px solid rgba(181,67,47,0.85);
+          color: #7a2a1c !important;
+          font-weight: 600;
         }
         .evc-row-focused td {
           background-image: linear-gradient(
             100deg,
             transparent 0%,
-            rgba(16,185,129,0.16) 45%,
-            rgba(16,185,129,0.16) 55%,
+            rgba(181,67,47,0.18) 45%,
+            rgba(181,67,47,0.18) 55%,
             transparent 100%
           );
           background-size: 220% 100%;
           animation: evc-row-sweep 1.1s ease-out 1;
+        }
+        .evc-row-focused td:first-child {
+          box-shadow: inset 3px 0 0 0 #b5432f;
         }
         .evc-cell-selected {
           animation: evc-select-pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) 1;

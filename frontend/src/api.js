@@ -132,8 +132,24 @@ export async function getExceptions(runId) {
   return { items, counts, total: items.length };
 }
 
-export function resolveDecision(decisionId) {
-  return req(`/decisions/${decisionId}/resolve`, { method: "POST" });
+export function saveChecklistState(decisionId, state) {
+  return req(`/decisions/${decisionId}/checklist`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ state }),
+  });
+}
+
+export function resolveDecision(decisionId, { reason, note } = {}) {
+  return req(`/decisions/${decisionId}/resolve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason: reason || null, note: note || null }),
+  });
+}
+
+export function getResolutions(runId) {
+  return req(`/runs/${runId}/resolutions`);
 }
 
 export function explainDecision(decisionId) {
@@ -158,6 +174,48 @@ export function auditExportUrl(runId) {
 
 export function sourceFileUrl(name) {
   return `${API_BASE}/data/source/${name}`;
+}
+
+export function runSourceFileUrl(runId, name) {
+  return `${API_BASE}/runs/${runId}/source/${name}`;
+}
+
+export function getRunBreakdown(runId) {
+  return req(`/runs/${runId}/breakdown`);
+}
+
+export function getCashPosition(runId) {
+  return req(`/runs/${runId}/cash-position`);
+}
+
+export function getCashForecast(runId, { horizon = 7, tPlus = 2, asOf } = {}) {
+  const params = new URLSearchParams({ horizon_days: String(horizon), t_plus: String(tPlus) });
+  if (asOf) params.set("as_of", asOf);
+  return req(`/runs/${runId}/cash-forecast?${params.toString()}`);
+}
+
+export function getTaxExposure(runId) {
+  return req(`/runs/${runId}/tax-exposure`);
+}
+
+export function getQualitySignals(runId) {
+  return req(`/runs/${runId}/quality-signals`);
+}
+
+export function getRazorpayVerification(runId) {
+  return req(`/runs/${runId}/razorpay-verification`);
+}
+
+export function razorpayHealth() {
+  return req(`/razorpay/health`);
+}
+
+export function adjustmentMemoJsonUrl(decisionId) {
+  return `${API_BASE}/decisions/${decisionId}/adjustment-memo`;
+}
+
+export function adjustmentMemoHtmlUrl(decisionId) {
+  return `${API_BASE}/decisions/${decisionId}/adjustment-memo.html`;
 }
 
 // ---- UploadPage.jsx convenience wrappers ----------------------------------

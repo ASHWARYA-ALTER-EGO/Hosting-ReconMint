@@ -92,6 +92,70 @@ it can't prove.
 ### Dashboard — the run at a glance
 - **Headline metrics:** reconciled rate, match rate (incl. fuzzy), records processed, processing
   time + throughput, total amount reconciled (in ₹ with Indian grouping), and exception count.
+- **Cash position (Finance Controller view)** — four mutually-exclusive buckets computed
+  from this run's audited decisions, plus a headline **Net Available** figure. The buckets are:
+  - **Cleared** — reconciled settlements matched to a bank credit (money in your account).
+  - **In-flight** — settlements Razorpay confirmed but the bank has not yet credited.
+  - **At-risk** — chargebacks and disputed payments being clawed back.
+  - **Ghost** — bank credits with no matching settlement (cash you have but can't attribute).
+  Net Available = *cleared + ghost − at-risk*. In-flight is deliberately excluded so a controller
+  sees what is actually spendable *right now*, not what's projected. Each bucket expands to show
+  the payment IDs behind it. Fed by `GET /runs/{run_id}/cash-position`; every rupee traces to a
+  row in the `decisions` table.
+- **Forward cash forecast (next 3 / 7 / 14 / 30 days)** — every in-flight settlement is projected
+  forward to `record_date + T+2 business days` (weekends skipped, holidays TBD). Rendered as a
+  column chart with a `Today` marker in red. Three summary chips at the top: **In horizon**,
+  **Past-due** (settlements that should have landed by now — a live "escalate now" list), and
+  **Beyond horizon** (won't land within the selected window). Click any bar to see the payment IDs
+  landing that day. Fed by `GET /runs/{run_id}/cash-forecast?horizon_days=N&t_plus=2`.
+- **Repair Agent · per-record branching (agentic, not pipeline)** — every settlement that
+  survives the exact + fuzzy passes is handed to a Repair Agent that tries three deterministic
+  repair strategies in order, logs every attempt (score, verdict, latency, detail), and accepts
+  the first strategy whose confidence clears threshold ≥ 0.85. The three strategies:
+  **amount_utr_fuzzy** (tight standard fuzzy — logged as the control datum),
+  **normalize_utr** (uppercase + strip punctuation, retry exact amount + UTR — catches
+  formatting drift), and **widen_date_window** (paise-exact amount, extend T+ to ±7 days —
+  catches late credits). The Dashboard has a "Repair Agent activity" card with per-strategy hit
+  rates + recovery percentage + average attempts/record. Every attempt is persisted per-decision
+  as `strategy_attempts_json`; the Exceptions drawer's new **Decisions** tab replays the tree
+  for that specific record (verdict badges, score bars, "resolved via this" stamp on the winner).
+- **Live Razorpay API verification (sponsor-product truth anchor)** — at ingest ReconMint makes
+  a real HTTPS call to `api.razorpay.com` using your `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`,
+  fetches up to 3 recent records from your test account, and renders the wire-level result on the
+  Dashboard: HTTP status, latency, the URL that was hit, and the `X-Razorpay-Request-Id` header
+  Razorpay stamps into every response (the id an auditor can quote back to Razorpay support to
+  trace one call). If your test account has no payments yet, the client transparently falls back
+  to `/v1/orders` — the truth-anchor a merchant creates first — and the card labels which source
+  answered. If the API is unreachable or the keys are missing, that's surfaced honestly rather
+  than hidden. Fed by `GET /runs/{run_id}/razorpay-verification`; also a live probe at
+  `GET /razorpay/health`. Every reconcile trace now opens with a "Live Razorpay API handshake"
+  stage.
+- **Batch quality signals (grade A / B / C / D)** — for uploaded runs that have no ground-truth
+  answer key, ReconMint publishes six *proxy* signals derivable from the audited decisions alone:
+  cross-source coverage, fee-schedule adherence, triage certainty, fuzzy match quality,
+  duplicates handled, input integrity. Each carries an A/B/C/D grade; a composite score is
+  weighted from the four percentage signals. This replaces the pretend precision/recall you'd
+  get from measuring against data you generated. Fed by `GET /runs/{run_id}/quality-signals`.
+- **Adjustment memo (closes the finance-ops loop)** — resolving an exception now generates a
+  downstream artifact in two formats: (1) a machine-readable JSON payload at
+  `GET /decisions/{decision_id}/adjustment-memo` (with a simulated webhook payload the payer's
+  ERP/ops queue could consume), and (2) a print-ready HTML memo at
+  `GET /decisions/{decision_id}/adjustment-memo.html` that opens in a new tab and can be saved
+  as PDF from the browser. The `resolution_reason` maps to a downstream action:
+  *confirmed → audit-trail*, *override → post_journal_entry*, *false_positive → close_and_ignore*,
+  *escalated → route_to_ops_queue*.
+- **Tax-line matcher (Tax exposure this batch)** — a first-class panel that reads the audited
+  fee reconstruction and surfaces three tax lines with observed-vs-expected drift:
+  - **MDR** — observed % of gross vs expected 2.00%
+  - **GST on MDR** — observed % of MDR vs expected 18.00%
+  - **TCS** — observed % of gross vs expected 1.00%
+
+  A headline **exposure** figure shows what the merchant should investigate:
+  *over-charged* (recover from gateway) vs *under-charged* (reserve to pay back), with a per-record
+  anomaly table ranked by |variance|, filterable by direction. When every rupee matches the
+  Razorpay schedule to the paise the headline flips green ("Tax lines clean"). Fed by
+  `GET /runs/{run_id}/tax-exposure`; every anomaly links to a `pay_XXX` present in the
+  Exceptions list.
 - **Detection Accuracy card** — precision / recall / F1 measured against a hidden answer key, plus
   the honest false-positive and false-negative counts. (Shown on demo runs, which have ground truth.)
 - **Reconciliation Breakdown** — a mutually-exclusive stacked bar: auto-matched, fuzzy-matched, fee
@@ -107,6 +171,12 @@ it can't prove.
   accuracy, fee composition, full exception list) and opens the print dialog for PDF. **Audit export**
   downloads every logged decision as CSV.
 
+### Ask the agent — deliberately focused
+The prompt box is a textarea, a send button, and one transparency chip that reads *"This run only ·
+figures verified before sent"*. There are no attachment, voice-record, or mode-toggle buttons
+because none of them would work here — the agent answers grounded questions about the loaded
+reconciliation run, nothing else, and the UI reflects that honestly.
+
 ### Exceptions — review what needs a human
 - **Severity tabs** (All / Critical / Warning / Info) with live counts, **search by payment ID**, and
   pagination.
@@ -120,6 +190,10 @@ it can't prove.
   - an **AI explanation on demand** — click "Explain with AI" and the agent generates a plain-English
     explanation that's verified before it's shown (it falls back to the deterministic explanation if
     the model tries to introduce an unverifiable number),
+  - a **Diagnose & Fix** tab with a per-category investigation checklist that persists across
+    sessions — tick two steps, close the drawer, reload the page, the ticks are still there.
+    Server-side storage via `POST /decisions/{id}/checklist`; the header carries a "Persisted"
+    (or "Saving…") chip so the state is visible, not implied.
   - **Mark as Resolved**, which removes the item from the queue.
 - **"View source data"** toggle opens the same spreadsheet viewer so you can cross-reference an
   exception against the raw settlement / bank rows.

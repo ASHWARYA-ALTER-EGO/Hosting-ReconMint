@@ -124,31 +124,154 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
             s.update(extra)
         trace.append(s)
 
-    # ---- ingest + validate ----
+    # ---- 0. live Razorpay API handshake (sponsor-product truth anchor) ----
+    ts = time.perf_counter()
+    from backend.agent import razorpay_client as rzp
+    rzp_result = rzp.sample_payments(3) if rzp.keys_configured() else None
+    razorpay_verification: dict | None = None
+    if rzp_result is not None:
+        r = rzp_result.to_dict()
+        if r["ok"]:
+            n_items = len(r["payments"])
+            source = r.get("reason") or "payments"
+            detail = (f"Razorpay test API reachable - fetched {n_items} live {source}, "
+                      f"HTTP {r['status_code']} in {r['latency_ms']}ms")
+            status = "done"
+            substeps = [
+                f"HTTP GET {r['url']} -> {r['status_code']}",
+                f"latency {r['latency_ms']}ms",
+                (f"X-Razorpay-Request-Id: {r['razorpay_request_id']}"
+                 if r.get("razorpay_request_id") else "no request-id header returned"),
+                f"sampled {n_items} live {source} from your Razorpay test account",
+            ]
+        else:
+            reason = r.get("reason") or "error"
+            detail = f"Razorpay API call failed ({reason}) - reconciliation continues without live check"
+            status = "caught"
+            substeps = [
+                f"HTTP GET {r['url']} -> {r['status_code'] or 'network'}",
+                r.get("detail", "")[:120],
+                "engine falls through to source-file-only reconciliation",
+            ]
+        stage("Live Razorpay API handshake", detail,
+              time.perf_counter() - ts,
+              {"via": "razorpay-api", "status": status, "substeps": substeps})
+        razorpay_verification = r
+
     ts = time.perf_counter()
     inputs = load_inputs(data_dir)
     report = validate_inputs(inputs.orders, inputs.settlement, inputs.bank)
     if not report.ok:
         raise InputValidationError("; ".join(report.errors))
     total_records = sum(inputs.counts.values())
-    stage("Ingested & validated", f"{total_records} rows across 3 sources, schema checked",
-          time.perf_counter() - ts, {"via": "rules"})
+    stage("Ingested & validated",
+          f"{total_records} rows across 3 sources, schema checked",
+          time.perf_counter() - ts, {"via": "rules", "substeps": [
+              f"{inputs.counts.get('orders', 0)} order rows parsed",
+              f"{inputs.counts.get('settlement', 0)} settlement rows parsed",
+              f"{inputs.counts.get('bank', 0)} bank rows parsed",
+              "IST timezone normalized, amounts coerced to paise",
+          ]})
 
     t0 = time.perf_counter()
 
     # ---- exact match (incl. fee reconstruction) ----
     ts = time.perf_counter()
     result = exact_match(inputs)
+    settle_n = int(result.stats["settlement_rows_active"])
+    exact_n = int(result.stats["matched_exact"])
+    dup_n = len(result.duplicates)
     stage("Reconstructed fees + exact match",
-          f"{result.stats['matched_exact']} matched on UTR + paise-exact amount",
-          time.perf_counter() - ts, {"via": "deterministic"})
+          f"{exact_n} matched on UTR + paise-exact amount",
+          time.perf_counter() - ts, {"via": "deterministic", "substeps": [
+              f"{settle_n} fee schedules recomputed (MDR 2%, GST 18% on MDR, TCS 1%)",
+              f"{exact_n} of {settle_n} matched exactly on UTR + amount",
+              f"{max(settle_n - exact_n, 0)} rows deferred to fuzzy pass",
+              f"{dup_n} duplicate payment_id quarantined" if dup_n else "no duplicate payment_id",
+          ]})
 
     # ---- fuzzy recovery ----
     ts = time.perf_counter()
     result = fuzzy_match(result, inputs)
+    fuzzy_n = int(result.stats["matched_fuzzy"])
+    unresolved = int(result.stats["settlement_rows_active"] - exact_n - fuzzy_n)
+    from backend.engine.fuzzy import ACCEPT_THRESHOLD as _FZ_T
     stage("Fuzzy recovery",
-          f"{result.stats['matched_fuzzy']} near-misses recovered (T+2 timing, UTR typos)",
-          time.perf_counter() - ts, {"via": "deterministic"})
+          f"{fuzzy_n} near-misses recovered (T+2 timing, UTR typos)",
+          time.perf_counter() - ts, {"via": "deterministic", "substeps": [
+              f"amount-bucket index scanned near-misses within +/- Rs.1",
+              f"{fuzzy_n} accepted at confidence >= {_FZ_T}",
+              f"{unresolved} rejected below threshold, deferred to Repair Agent",
+          ]})
+
+    # ---- Repair Agent: per-record strategy branching -------------------------
+    # For every still-unmatched settlement, try three strategies in order and log
+    # each attempt. This is the agentic layer: choices under uncertainty, per record.
+    from backend.agent.repair import repair_settlement
+    from backend.engine.matcher import MATCHED_FUZZY, UNMATCHED
+    ts = time.perf_counter()
+    repair_attempts_by_pid: dict[str, dict] = {}
+    active = result.settlement
+    bank = inputs.bank
+    claimed_bank_idxs = set(int(i) for i in active.loc[active["matched_bank_idx"] >= 0,
+                                                       "matched_bank_idx"])
+    available_bank = set(bank.index) - claimed_bank_idxs
+
+    repair_records_touched = 0
+    repair_records_recovered = 0
+    total_attempts_logged = 0
+    per_strategy_stats = {
+        "amount_utr_fuzzy":   {"tried": 0, "accepted": 0},
+        "normalize_utr":      {"tried": 0, "accepted": 0},
+        "widen_date_window":  {"tried": 0, "accepted": 0},
+    }
+
+    for pos, row in active.iterrows():
+        if row["match_status"] != UNMATCHED:
+            continue
+        outcome = repair_settlement(row, bank, available_bank)
+        repair_records_touched += 1
+        for a in outcome.attempts:
+            total_attempts_logged += 1
+            per_strategy_stats.setdefault(a.strategy, {"tried": 0, "accepted": 0})
+            per_strategy_stats[a.strategy]["tried"] += 1
+            if a.verdict == "accepted":
+                per_strategy_stats[a.strategy]["accepted"] += 1
+
+        pid = str(row["payment_id"])
+        repair_attempts_by_pid[pid] = {
+            "attempts": outcome.to_json(),
+            "accepted_strategy": outcome.accepted.strategy if outcome.accepted else None,
+        }
+
+        if outcome.accepted is not None and outcome.accepted.bank_idx is not None:
+            bidx = int(outcome.accepted.bank_idx)
+            available_bank.discard(bidx)
+            claimed_bank_idxs.add(bidx)
+            active.at[pos, "match_status"] = MATCHED_FUZZY
+            active.at[pos, "matched_bank_idx"] = bidx
+            active.at[pos, "confidence"] = round(float(outcome.accepted.score or 0.0), 4)
+            active.at[pos, "unmatched_reason"] = ""
+            repair_records_recovered += 1
+
+    # Rebuild the finalized view so downstream stats pick up the repaired matches.
+    if repair_records_recovered > 0:
+        from backend.engine.matcher import _finalize
+        result = _finalize(active, result.duplicates, bank)
+        fuzzy_n = int(result.stats["matched_fuzzy"])
+        unresolved = int(result.stats["settlement_rows_active"] - exact_n - fuzzy_n)
+
+    stage("Repair Agent (branching)",
+          f"{repair_records_recovered} of {repair_records_touched} unmatched settlements recovered "
+          f"across {total_attempts_logged} strategy attempts",
+          time.perf_counter() - ts, {"via": "agent", "substeps": (
+              [f"{repair_records_touched} unmatched settlements handed to the Repair Agent",
+               f"3 strategies tried in order per record (first winner accepts)",
+               *(f"{k}: {v['accepted']}/{v['tried']} accepted"
+                 for k, v in per_strategy_stats.items())]
+              if repair_records_touched > 0 else
+              ["no still-unmatched settlements after fuzzy - Repair Agent idle"]
+          )})
 
     elapsed = time.perf_counter() - t0
 
@@ -186,6 +309,13 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
             "record_date": (str(row["settled_date"].date())
                             if row.get("settled_date") is not None else None),
         }
+
+        # attach Repair Agent per-record decision tree when we have one for this pid
+        pid = str(row["payment_id"])
+        if pid in repair_attempts_by_pid:
+            rep = repair_attempts_by_pid[pid]
+            decision["strategy_attempts_json"] = json.dumps(rep["attempts"])
+            decision["accepted_strategy"] = rep["accepted_strategy"]
 
         # LLM explanation only on the EXPLAIN branch, only within budget
         if action == EXPLAIN and use_llm and (max_llm_calls is None or llm_calls < max_llm_calls):
@@ -243,9 +373,18 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
                            "Genuinely unresolvable from the given data; escalated to a human.",
         })
 
+    sev_counts = {"critical": 0, "warning": 0, "info": 0}
+    for d in decisions:
+        s = d.get("severity") or "info"
+        sev_counts[s] = sev_counts.get(s, 0) + 1
+    ghost_n = len(result.unmatched_bank)
     stage("Triaged exceptions",
           f"{exceptions} flagged, routed to auto-resolve / explain / escalate",
-          time.perf_counter() - ts_triage, {"via": "rules"})
+          time.perf_counter() - ts_triage, {"via": "rules", "substeps": [
+              f"{sev_counts['critical']} critical, {sev_counts['warning']} warning, {sev_counts['info']} info",
+              f"{ghost_n} ghost bank credits flagged for escalation" if ghost_n else "no ghost bank credits",
+              f"severity assigned via written rules on resolution + gap size",
+          ]})
 
     stats = result.stats
     meta = {
@@ -263,6 +402,12 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
         "llm_calls": llm_calls,
         "llm_verified_count": llm_verified_count,
         "llm_cost_usd_total": round(llm_cost_total, 6),
+        "repair_agent": {
+            "records_touched":  repair_records_touched,
+            "records_recovered": repair_records_recovered,
+            "attempts_logged":   total_attempts_logged,
+            "per_strategy":      per_strategy_stats,
+        },
     }
 
     if persist:
@@ -271,6 +416,19 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
         audit.start_run(run_id, meta)
         audit.log_decisions(run_id, decisions)
         stage("Verified & logged", f"{len(decisions)} decisions written to the audit trail",
-              time.perf_counter() - ts, {"via": "rules"})
+              time.perf_counter() - ts, {"via": "rules", "substeps": [
+                  f"{len(decisions)} rows written to SQLite (runs + decisions tables)",
+                  f"reconciled amount: Rs.{meta['reconciled_amount_paise'] / 100:,.2f}",
+                  f"every figure traceable to source row + rule fired",
+              ]})
 
-    return {"run_id": run_id, "meta": meta, "decisions_logged": len(decisions), "trace": trace}
+    # Persist the live-API handshake so the Dashboard can render a Razorpay-verified badge
+    # long after the reconcile stage's trace has scrolled away.
+    if persist and razorpay_verification is not None:
+        try:
+            AuditLog().save_razorpay_verification(run_id, razorpay_verification)
+        except Exception:  # noqa: BLE001
+            pass  # audit best-effort; never fails the reconcile
+
+    return {"run_id": run_id, "meta": meta, "decisions_logged": len(decisions),
+            "trace": trace, "razorpay_verification": razorpay_verification}

@@ -297,14 +297,149 @@ const TABS = [
   { id: "overview", label: "Overview", icon: "fa-circle-info" },
   { id: "diagnose", label: "Diagnose & Fix", icon: "fa-stethoscope" },
   { id: "ledger", label: "Ledger", icon: "fa-table-list" },
+  { id: "decisions", label: "Decisions", icon: "fa-code-branch" },
   { id: "explain", label: "Explain", icon: "fa-wand-magic-sparkles" },
 ];
 
-function Drawer({ item, onClose, onResolve, resolving, onExplain, explaining, showToast, onViewSource, onPrev, onNext, hasPrev, hasNext, position }) {
+const STRATEGY_META = {
+  amount_utr_fuzzy:  { label: "Amount + UTR fuzzy",     icon: "fa-magnifying-glass" },
+  normalize_utr:     { label: "Normalize UTR + retry",  icon: "fa-hammer" },
+  widen_date_window: { label: "Widen date window ±7d",  icon: "fa-calendar-week" },
+};
+
+const VERDICT_STYLE = {
+  accepted:     { fg: "#2f5b34", bg: "rgba(75,123,78,0.10)",   ring: "rgba(75,123,78,0.5)",  icon: "fa-circle-check" },
+  rejected:     { fg: "#8f3323", bg: "rgba(181,67,47,0.08)",   ring: "rgba(181,67,47,0.4)",  icon: "fa-circle-xmark" },
+  no_candidate: { fg: "#8f6b1e", bg: "rgba(184,134,59,0.10)",  ring: "rgba(184,134,59,0.4)", icon: "fa-circle-question" },
+};
+
+function DecisionsTree({ item }) {
+  const attempts = item.strategy_attempts || [];
+  const accepted = item.accepted_strategy;
+  if (!attempts.length) {
+    return (
+      <div className="animate-[fadeIn_.2s_ease]">
+        <div className="bg-[#f6f4ea] border border-[#c7d1bc] p-6 text-center">
+          <i className="fa-solid fa-code-branch text-2xl text-[#9aa590] mb-2" />
+          <p className="text-sm text-[#5c6b52] font-medium">
+            Repair Agent didn't run on this record.
+          </p>
+          <p className="text-[11px] text-[#9aa590] mt-1">
+            Exact or standard fuzzy matched it earlier, or the record isn't a settlement
+            (ghost bank credit, duplicate).
+          </p>
+        </div>
+      </div>
+    );
+  }
+  const totalMs = attempts.reduce((s, a) => s + (a.ms || 0), 0).toFixed(2);
+  return (
+    <div className="animate-[fadeIn_.2s_ease]">
+      <div className="relative bg-[#f6f4ea] p-5 border border-[#c7d1bc] mb-4">
+        <div className="absolute top-0 left-0 w-full h-1 bg-[#2b3527]" />
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <i className="fa-solid fa-code-branch text-[#2b3527] text-sm" />
+            <h4 className="text-xs font-bold text-[#2b3527] uppercase tracking-wider">Repair Agent · what it tried</h4>
+          </div>
+          <span className="text-[10px] text-[#5c6b52] tabular-nums">{attempts.length} attempts · {totalMs} ms total</span>
+        </div>
+        <p className="text-[12px] text-[#3d4636] leading-relaxed">
+          For this record, the agent tried up to three strategies in order. The first that cleared
+          confidence <span className="font-mono font-semibold">≥ 0.85</span> was accepted; the rest are
+          logged for the audit trail.
+        </p>
+      </div>
+
+      <div className="relative">
+        {attempts.map((a, i) => {
+          const style = VERDICT_STYLE[a.verdict] || VERDICT_STYLE.rejected;
+          const meta = STRATEGY_META[a.strategy] || { label: a.strategy, icon: "fa-cog" };
+          const isAccepted = accepted && a.strategy === accepted;
+          const isLast = i === attempts.length - 1;
+          const scorePct = a.score != null ? Math.round(a.score * 100) : null;
+
+          return (
+            <div key={i} className="flex items-start gap-3 relative pb-4">
+              {!isLast && (
+                <div className="absolute left-[14px] top-8 bottom-0 w-px" style={{ background: "#c7d1bc" }} />
+              )}
+              <div
+                className="relative z-10 mt-0.5 w-[30px] h-[30px] rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: style.bg, border: `2px solid ${style.ring}`, color: style.fg }}
+              >
+                <i className={`fa-solid ${style.icon} text-[13px]`} />
+              </div>
+              <div className="flex-1 min-w-0 bg-[#f6f4ea] border p-4"
+                style={{ borderColor: isAccepted ? "#4a5d3f" : "#c7d1bc" }}
+              >
+                <div className="flex items-baseline gap-2 flex-wrap mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <i className={`fa-solid ${meta.icon} text-[11px] text-[#5c6b52]`} />
+                    <span className="text-[13px] font-bold text-[#2b3527]">
+                      {i + 1}. {meta.label}
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded uppercase tracking-wider"
+                    style={{ background: style.bg, color: style.fg, border: `1px solid ${style.ring}` }}>
+                    {a.verdict.replace("_", " ")}
+                  </span>
+                  {isAccepted && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider"
+                      style={{ background: "#2b3527", color: "#eef2e8" }}>
+                      ✓ resolved via this
+                    </span>
+                  )}
+                  <span className="ml-auto text-[10px] text-[#9aa590] tabular-nums">{a.ms} ms</span>
+                </div>
+
+                <div className="flex items-center gap-3 text-[11px] mb-2">
+                  {scorePct != null && (
+                    <div className="flex items-center gap-2 min-w-[140px]">
+                      <div className="w-24 h-1.5 bg-[#e6e9e0] border border-[#c7d1bc] overflow-hidden">
+                        <div className="h-full transition-all duration-500" style={{
+                          width: `${Math.max(2, scorePct)}%`,
+                          background: isAccepted ? "#4a5d3f" : (scorePct >= 85 ? "#a8791f" : "#b5452f"),
+                        }} />
+                      </div>
+                      <span className="font-mono font-bold tabular-nums text-[#2b3527]">
+                        {a.score.toFixed(3)}
+                      </span>
+                      <span className="text-[9px] text-[#9aa590]">/ {a.threshold}</span>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-[11.5px] text-[#3d4636] leading-relaxed">{a.detail}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 p-3 text-[10.5px] rounded border-l-2"
+        style={{ borderColor: accepted ? "#4a5d3f" : "#b5452f",
+                 background: "rgba(43,53,39,0.03)", color: "#5c6b52" }}>
+        {accepted
+          ? <>Result: recovered via <span className="font-semibold text-[#2b3527]">{STRATEGY_META[accepted]?.label || accepted}</span>.
+              Every attempt above is persisted in <span className="font-mono">strategy_attempts_json</span> on this decision row.</>
+          : <>Result: no strategy cleared threshold — record flagged for human review.
+              The full attempt tree is preserved for audit.</>
+        }
+      </div>
+    </div>
+  );
+}
+
+function Drawer({ item, onClose, onResolve, resolving, onExplain, explaining, showToast, onViewSource, onAskFix, onPrev, onNext, hasPrev, hasNext, position }) {
   const led = item.ledger;
   const [visible, setVisible] = useState(false);
   const [tab, setTab] = useState("overview");
-  const [checked, setChecked] = useState({});
+  // Hydrate the Diagnose checklist from the server-side persisted state so a judge
+  // can click, close the drawer, reopen, or reload the whole app - the ticks stick.
+  const [checked, setChecked] = useState(() => item.checklist_state || {});
+  const [checklistDirty, setChecklistDirty] = useState(false);
+  const [checklistSaving, setChecklistSaving] = useState(false);
   const [reason, setReason] = useState("confirmed");
   const [note, setNote] = useState("");
   const touchStartX = useRef(null);
@@ -320,10 +455,25 @@ function Drawer({ item, onClose, onResolve, resolving, onExplain, explaining, sh
 
   useEffect(() => {
     setTab("overview");
-    setChecked({});
+    // Re-hydrate from the persisted state whenever the drawer switches record.
+    setChecked(item.checklist_state || {});
+    setChecklistDirty(false);
     setReason("confirmed");
     setNote("");
-  }, [item.decisionId]);
+  }, [item.decisionId]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debounced auto-save whenever the checklist changes locally. One PATCH per burst
+  // of clicks; no per-click round trip.
+  useEffect(() => {
+    if (!checklistDirty) return;
+    setChecklistSaving(true);
+    const handle = setTimeout(() => {
+      api.saveChecklistState(item.decisionId, checked)
+        .catch((e) => showToast?.(`Couldn't save checklist: ${e.message}`, "error"))
+        .finally(() => { setChecklistSaving(false); setChecklistDirty(false); });
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [checked, checklistDirty, item.decisionId, showToast]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -360,7 +510,10 @@ function Drawer({ item, onClose, onResolve, resolving, onExplain, explaining, sh
     touchDeltaX.current = 0;
   };
 
-  const toggleStep = (i) => setChecked((c) => ({ ...c, [i]: !c[i] }));
+  const toggleStep = (i) => {
+    setChecked((c) => ({ ...c, [i]: !c[i] }));
+    setChecklistDirty(true);
+  };
 
   return (
     <>
@@ -474,7 +627,16 @@ function Drawer({ item, onClose, onResolve, resolving, onExplain, explaining, sh
 
               <div className="bg-[#f6f4ea] border border-[#c7d1bc] overflow-hidden mb-5">
                 <div className="px-5 py-3.5 bg-[#eef2e8] border-b border-[#c7d1bc] flex items-center justify-between">
-                  <h3 className="text-[11px] font-bold text-[#5c6b52] uppercase tracking-wider">Investigation checklist</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-[11px] font-bold text-[#5c6b52] uppercase tracking-wider">Investigation checklist</h3>
+                    <span className="text-[9px] font-semibold uppercase tracking-wider flex items-center gap-1"
+                      style={{ color: checklistSaving ? "#a8791f" : "#4a5d3f" }}>
+                      <span className="w-1 h-1 rounded-full"
+                        style={{ background: checklistSaving ? "#a8791f" : "#4a5d3f",
+                                 animation: checklistSaving ? "pulse 1s ease-in-out infinite" : "none" }} />
+                      {checklistSaving ? "Saving…" : "Persisted"}
+                    </span>
+                  </div>
                   <span className="text-[11px] font-bold text-[#9aa590] tabular-nums">{doneCount}/{playbook.steps.length} done</span>
                 </div>
                 <div className="divide-y divide-[#e2e7d9]">
@@ -522,6 +684,13 @@ function Drawer({ item, onClose, onResolve, resolving, onExplain, explaining, sh
                       Ask AI to explain
                     </button>
                   )}
+                  <button
+                    onClick={() => onAskFix?.(item)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#eef2e8] bg-[#2b3527] hover:bg-[#3a4634] border border-[#2b3527] px-3 py-2 transition-all duration-150 active:scale-[0.96]"
+                  >
+                    <i className="fa-solid fa-robot text-[11px]"></i>
+                    Ask the agent how to fix this
+                  </button>
                 </div>
               </div>
             </div>
@@ -560,6 +729,10 @@ function Drawer({ item, onClose, onResolve, resolving, onExplain, explaining, sh
                 <p className="text-sm text-[#9aa590] text-center py-10">No ledger breakdown available for this record.</p>
               )}
             </div>
+          )}
+
+          {tab === "decisions" && (
+            <DecisionsTree item={item} />
           )}
 
           {tab === "explain" && (
@@ -627,7 +800,7 @@ function Drawer({ item, onClose, onResolve, resolving, onExplain, explaining, sh
   );
 }
 
-export default function ExceptionsPage({ run, showToast, onGoUpload }) {
+export default function ExceptionsPage({ run, showToast, onGoUpload, onAskAbout }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState("All");
@@ -712,11 +885,21 @@ export default function ExceptionsPage({ run, showToast, onGoUpload }) {
     if (targetPage !== page) setPage(targetPage);
   };
 
-  const resolve = async (item) => {
+  const resolve = async (payload) => {
+    // `payload` = { ...item, resolutionReason, resolutionNote } from Drawer.buildResolvePayload.
+    const reason = payload.resolutionReason || "confirmed";
+    const note = payload.resolutionNote;
+    const reasonLabel =
+      (RESOLUTION_REASONS.find((r) => r.id === reason) || {}).label || reason;
     setResolving(true);
     try {
-      await api.resolveDecision(item.decisionId);
-      showToast(`Resolved ${item.id}`);
+      await api.resolveDecision(payload.decisionId, { reason, note });
+      // Close the loop: auto-open the printable adjustment memo in a new tab so the
+      // operator has a downstream artifact in hand (JSON + printable HTML both available).
+      try {
+        window.open(api.adjustmentMemoHtmlUrl(payload.decisionId), "_blank", "noopener");
+      } catch { /* popup blocked - the link is still in the drawer next time */ }
+      showToast(`${payload.id} → ${reasonLabel} · memo generated, downstream action ready`);
       setSelected(null);
       await load();
     } catch (e) {
@@ -882,7 +1065,9 @@ export default function ExceptionsPage({ run, showToast, onGoUpload }) {
             </p>
             <SourceFilesCard
               isDemo={run.isDemo}
+              runId={run.runId}
               height={340}
+              focusSheet={sourceFocus?.sheet || "settlement"}
               focusRowId={sourceFocus?.id}
               focusColumn={sourceFocus?.column}
               focusToken={sourceFocus?.token}
@@ -912,7 +1097,8 @@ export default function ExceptionsPage({ run, showToast, onGoUpload }) {
           onExplain={explain}
           explaining={explaining}
           showToast={showToast}
-          onViewSource={() => setShowSource(true)}
+          onViewSource={() => openSourceFor(selected, "id")}
+          onAskFix={(it) => onAskAbout?.(`How do I resolve ${it.id}?`)}
           onPrev={() => goTo(selectedIndex - 1)}
           onNext={() => goTo(selectedIndex + 1)}
           hasPrev={hasPrev}

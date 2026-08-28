@@ -191,11 +191,14 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
     const n = (runResult.trace || []).length;
     setRevealed(0);
     let i = 0;
+    // Reveal each stage on a fixed cadence so the operator can actually read the sub-chips
+    // as they land. The real backend elapsed is already shown per step; this is UI pacing,
+    // not fake work.
     const id = setInterval(() => {
       i += 1;
       setRevealed(i);
       if (i >= n) clearInterval(id);
-    }, 420);
+    }, 950);
     return () => clearInterval(id);
   }, [runResult]);
 

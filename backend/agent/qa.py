@@ -33,6 +33,7 @@ METRICS = {
     "duplicates": "Duplicate payments quarantined",
     "payout_variance": "Total rupee variance between expected and actual net",
     "explain_payment": "Explain one specific payment by id",
+    "resolve_payment": "Structured resolution plan for one specific payment id",
     "source_files": "What the uploaded orders / settlement / bank files are used for",
     "capabilities": "What this agent can answer",
     "off_topic": "Refuse questions outside settlement reconciliation",
@@ -76,7 +77,7 @@ _ON_TOPIC_RE = re.compile(
     r"csv|xlsx|xls|excel|workbook|spreadsheet|file|column|upload|gross|"
     r"net|batch|run|match rate|matched|unmatched|razorpay|gateway|merchant|"
     r"invoice|debit|credit|amount|rupee|inr|landed|credited|pay_|"
-    r"orders|statement|report)\b",
+    r"orders|statement|report|review|resolve|fix|handle|escalate)\b",
     re.I,
 )
 
@@ -88,6 +89,10 @@ _GREETING_RE = re.compile(
 
 _CATEGORY = {
     "fee_anomaly": "Amount Mismatch",
+    "bank_utr_found_amount_differs": "Amount Mismatch",
+    "bank_amount_mismatch": "Amount Mismatch",
+    "no_bank_row_with_utr": "Missing in Bank",
+    "bank_date_mismatch": "Missing in Bank",
     "no_matching_settlement": "Missing in Bank",
     "chargeback_no_credit": "Chargeback",
     "duplicate_payment_id": "Duplicate",
@@ -151,6 +156,9 @@ def _keyword_intent(q: str) -> dict:
         if tok.lower().startswith("pay_"):
             pid = tok
     if pid:
+        # "How do I fix / resolve / handle pay_XXX?" -> structured resolution plan.
+        if re.search(r"\b(fix|resolve|handle|escalate|action|do about|next step|remediate|clear)\b", s):
+            return {"metric": "resolve_payment", "payment_id": pid}
         return {"metric": "explain_payment", "payment_id": pid}
     if not _looks_on_topic(q):
         return {"metric": "off_topic"}
@@ -166,7 +174,8 @@ def _keyword_intent(q: str) -> dict:
         return {"metric": "duplicates"}
     if "variance" in s or "gap" in s or "difference" in s:
         return {"metric": "payout_variance"}
-    if "exception" in s or "unresolved" in s or "needs review" in s:
+    if ("exception" in s or "unresolved" in s or "need review" in s or "needs review" in s
+            or "to review" in s or "flagged" in s or "how many" in s):
         return {"metric": "exceptions_summary"}
     if "match rate" in s:
         return {"metric": "match_rate"}
@@ -195,12 +204,25 @@ def parse_intent(question: str) -> tuple[dict, bool]:
         data = json.loads(resp.text)
         metric = data.get("metric")
         if metric == "off_topic":
+            # If the model refuses but our on-topic keyword parse finds a concrete
+            # metric, trust the deterministic parse — this prevents seed questions
+            # like "How many exceptions need review?" from being wrongly refused.
+            kw = _keyword_intent(cleaned)
+            if kw.get("metric") not in ("off_topic", "capabilities"):
+                return kw, True
             return {"metric": "off_topic"}, True
         if metric in METRICS:
-            # Hard override: the model must not route a clearly off-scope prompt.
             if not _looks_on_topic(cleaned):
                 return {"metric": "off_topic"}, True
-            return {"metric": metric, "payment_id": data.get("payment_id")}, True
+            # Upgrade explain_payment -> resolve_payment when the phrasing is clearly asking
+            # for a fix (LLM often doesn't distinguish; keyword hint is authoritative here).
+            pid = data.get("payment_id")
+            if metric == "explain_payment" and pid and re.search(
+                r"\b(fix|resolve|handle|escalate|action|do about|next step|remediate|clear)\b",
+                cleaned, re.I
+            ):
+                return {"metric": "resolve_payment", "payment_id": pid}, True
+            return {"metric": metric, "payment_id": pid}, True
     except Exception:
         pass
     return _keyword_intent(cleaned), False
@@ -305,9 +327,91 @@ def compute(run_id: str, intent: dict) -> dict:
         figures = [fig("Gross", led.get("gross", 0)), fig("Expected net", led.get("expectedNet", 0)),
                    fig("Actual net", led.get("actualNet", 0)), fig("Variance", v)]
         answer = (f"{pid}: gross {_inr(led.get('gross',0))}, expected net {_inr(led.get('expectedNet',0))}, "
-                  f"bank net {_inr(led.get('actualNet',0))} — variance {_inr(v)}. "
+                  f"bank net {_inr(led.get('actualNet',0))} - variance {_inr(v)}. "
                   f"{match.get('explanation','')}")
         return {"answer": answer, "figures": figures, "rows": [], "tool": "explain_payment"}
+
+    if metric == "resolve_payment":
+        pid = intent.get("payment_id")
+        match = next((d for d in decisions if d.get("record_ref") == pid), None)
+        if not match:
+            return {"answer": f"I have no record of {pid} in this run.", "figures": [], "rows": [], "tool": "lookup"}
+        led = json.loads(match["ledger_json"]) if match.get("ledger_json") else {}
+        reason = match.get("reason") or ""
+        cat = _category(reason)
+        v = led.get("variance", 0)
+        # Per-category structured resolution plan. Deterministic - the LLM only phrases the summary.
+        plans = {
+            "Amount Mismatch": {
+                "root_cause": ("Bank net differs from the fee schedule's expected net by "
+                               f"{_inr(v)}."),
+                "steps": [
+                    "Open the Ledger tab and compare the sub-lines - MDR, GST and TCS - against the settlement row.",
+                    "Check if the gateway's fee slab changed on this settlement date (per-plan pricing, GST holiday).",
+                    "If the delta is under Rs.1, mark False positive - sub-paise GST rounding.",
+                    "Otherwise raise a fee-dispute ticket with the gateway quoting this payment_id and variance.",
+                ],
+                "recommended_reason": "override" if abs(v) >= 1 else "false_positive",
+            },
+            "Missing in Bank": {
+                "root_cause": "Settlement exists in Razorpay but no matching bank credit is in the bank statement yet.",
+                "steps": [
+                    "Confirm the payment method's cycle (cards T+2, UPI T+1, netbanking sometimes same day).",
+                    "Search the bank statement for the UTR in the settlement row.",
+                    "If the UTR is present with a different amount, the row is really an Amount Mismatch - re-triage.",
+                    "If older than the SLA, escalate to bank ops with the UTR + expected net.",
+                ],
+                "recommended_reason": "escalated",
+            },
+            "Chargeback": {
+                "root_cause": "The gateway reported a chargeback for this payment - money already debited from the merchant.",
+                "steps": [
+                    "Confirm the chargeback reason code in the Razorpay dashboard.",
+                    "Gather delivery / service evidence before the dispute deadline.",
+                    "File the dispute response; log the ticket id in the note field.",
+                    "Mark Escalated to finance once filed.",
+                ],
+                "recommended_reason": "escalated",
+            },
+            "Duplicate": {
+                "root_cause": "Two settlement rows share this payment_id - the second one is quarantined and never affects payouts.",
+                "steps": [
+                    "Confirm both rows in the settlement source file share the same payment_id.",
+                    "Verify the bank credited the payment only once (single UTR).",
+                    "Mark Confirmed match; the quarantine already prevents double-counting.",
+                ],
+                "recommended_reason": "confirmed",
+            },
+            "No Order": {
+                "root_cause": "The bank shows a credit whose UTR does not match any settlement in this batch.",
+                "steps": [
+                    "Search past runs / manual credits for the UTR.",
+                    "If it belongs to a different merchant account, mark False positive.",
+                    "If it's a real ghost credit, escalate to finance for manual application.",
+                ],
+                "recommended_reason": "escalated",
+            },
+            "Other": {
+                "root_cause": match.get("explanation") or "Non-standard exception - manual review.",
+                "steps": [
+                    "Read the Explain tab for the deterministic reason.",
+                    "Cross-check the Ledger tab against the source rows.",
+                    "Pick the resolution chip that matches the outcome after review.",
+                ],
+                "recommended_reason": "override",
+            },
+        }
+        plan = plans.get(cat, plans["Other"])
+        figures = [fig("Variance", v), fig("Expected net", led.get("expectedNet", 0)),
+                   fig("Actual net", led.get("actualNet", 0))]
+        answer = (f"{pid} ({cat}). Root cause: {plan['root_cause']} "
+                  f"Recommended resolution: {plan['recommended_reason']}.")
+        return {
+            "answer": answer, "figures": figures, "rows": [], "tool": "resolve_payment",
+            "plan": {"category": cat, "root_cause": plan["root_cause"],
+                     "steps": plan["steps"], "recommended_reason": plan["recommended_reason"],
+                     "payment_id": pid, "variance": v},
+        }
 
     return {"answer": "I can't map that to something I can compute.", "figures": [], "rows": [], "tool": "none"}
 
@@ -377,6 +481,7 @@ def ask(run_id: str, question: str) -> dict:
         "answer": answer,
         "figures": result["figures"],
         "rows": result["rows"],
+        "plan": result.get("plan"),
         "verified": verified,
         "source": source,
         "trace": trace,

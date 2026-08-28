@@ -117,93 +117,23 @@ function Tip({ label, children }) {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   ICONS (inline SVG)
+   ICONS (inline SVG, only the two the prompt box actually uses)
 ───────────────────────────────────────────────────────────── */
 const Icon = {
-  Paperclip: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>,
-  Globe: () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20A14.5 14.5 0 0 0 12 2"/><path d="M2 12h20"/></svg>,
-  Brain: () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg>,
-  Code: () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>,
-  Mic: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>,
-  MicOff: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="2" x2="22" y1="2" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" x2="12" y1="19" y2="22"/></svg>,
   ArrowUp: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>,
   Stop: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>,
-  X: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>,
 };
 
 /* ─────────────────────────────────────────────────────────────
-   VOICE RECORDER BAR
+   PROMPT INPUT BOX  (ledger style, focused on the one job)
+   Deliberately no attachments, no mode toggles, no voice recorder -
+   this agent answers grounded questions about a reconciliation run,
+   nothing else. Every affordance either does that, or doesn't ship.
 ───────────────────────────────────────────────────────────── */
-function VoiceRecorder({ isRecording, onStop }) {
-  const [time, setTime] = useState(0);
-  const timerRef = useRef(null);
-
-  useEffect(() => {
-    if (isRecording) {
-      setTime(0);
-      timerRef.current = setInterval(() => setTime(t => t + 1), 1000);
-    } else {
-      clearInterval(timerRef.current);
-    }
-    return () => clearInterval(timerRef.current);
-  }, [isRecording]);
-
-  const fmt = s => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-  const bars = 28;
-
-  if (!isRecording) return null;
-  return (
-    <div className="flex items-center gap-3 px-1 py-2 font-mono">
-      <span className="flex h-2 w-2 rounded-full" style={{ background: "#B5432F", animation: "pulse-dot 1s ease-in-out infinite" }} />
-      <span className="text-xs tabular-nums" style={{ color: "#6B7660" }}>{fmt(time)}</span>
-      <div className="flex flex-1 items-end justify-center gap-[2px] h-7">
-        {Array.from({ length: bars }).map((_, i) => (
-          <span key={i} className="w-[3px] rounded-full"
-            style={{
-              background: "#B7C4A3",
-              height: `${20 + Math.random() * 60}%`,
-              animation: `pulse 0.6s ease-in-out ${i * 0.04}s infinite alternate`,
-            }} />
-        ))}
-      </div>
-      <button onClick={() => onStop(time)}
-        className="ml-2 text-xs font-medium transition-colors"
-        style={{ color: "#B5432F" }}>
-        Stop
-      </button>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────
-   MODE TOGGLE BUTTON (Search / Think / Canvas)
-───────────────────────────────────────────────────────────── */
-function ModeBtn({ active, onClick, icon: IconEl, label }) {
-  return (
-    <button onClick={onClick}
-      className="flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-mono font-medium transition-all duration-200"
-      style={active
-        ? { borderColor: "#B5432F", color: "#B5432F", background: "rgba(181,67,47,0.08)" }
-        : { borderColor: "transparent", color: "#8A9478" }
-      }>
-      <span className={`transition-transform duration-200 ${active ? "scale-110" : ""}`}><IconEl /></span>
-      {active && <span className="overflow-hidden whitespace-nowrap">{label}</span>}
-    </button>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────
-   PROMPT INPUT BOX  (ledger style)
-───────────────────────────────────────────────────────────── */
-export const PromptInputBox = forwardRef(({ onSend, isLoading = false, placeholder = "Ask about fees, exceptions, a payment id…", className = "" }, ref) => {
+export const PromptInputBox = forwardRef(({ onSend, isLoading = false, placeholder = "Ask about fees, exceptions, a payment id…" }, ref) => {
   const [input, setInput] = useState("");
-  const [files, setFiles] = useState([]);
-  const [previews, setPreviews] = useState({});
-  const [isRecording, setIsRecording] = useState(false);
-  const [mode, setMode] = useState(null); // "search" | "think" | "canvas" | null
   const [focused, setFocused] = useState(false);
   const textareaRef = useRef(null);
-  const fileInputRef = useRef(null);
   const localBoxRef = useRef(null);
   const boxRef = ref || localBoxRef;
 
@@ -214,131 +144,61 @@ export const PromptInputBox = forwardRef(({ onSend, isLoading = false, placehold
     el.style.height = Math.min(el.scrollHeight, 180) + "px";
   }, [input]);
 
-  const processFile = useCallback(file => {
-    if (!file.type.startsWith("image/")) return;
-    if (file.size > 10 * 1024 * 1024) return;
-    setFiles([file]);
-    const reader = new FileReader();
-    reader.onload = e => setPreviews({ [file.name]: e.target.result });
-    reader.readAsDataURL(file);
-  }, []);
-
-  useEffect(() => {
-    const handler = e => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      for (const item of items) {
-        if (item.type.startsWith("image/")) { const f = item.getAsFile(); if (f) { e.preventDefault(); processFile(f); break; } }
-      }
-    };
-    document.addEventListener("paste", handler);
-    return () => document.removeEventListener("paste", handler);
-  }, [processFile]);
-
   const handleSubmit = () => {
     const text = input.trim();
     if (!text || isLoading) return;
     onSend?.(text);
-    setInput(""); setFiles([]); setPreviews({});
-  };
-
-  const handleRecordingStop = () => {
-    setIsRecording(false);
+    setInput("");
   };
 
   const hasContent = input.trim() !== "";
-  const toggleMode = m => setMode(prev => prev === m ? null : m);
 
   return (
     <div ref={boxRef}
-      className="rounded-md border transition-all duration-300"
+      className="rounded-md border transition-all duration-200"
       style={{
         background: "#FBFBF3",
         borderColor: focused ? "#1F2A1A" : "#D9E3C8",
         borderWidth: focused ? "1.5px" : "1px",
       }}
-      onDragOver={e => { e.preventDefault(); }}
-      onDrop={e => {
-        e.preventDefault();
-        const f = Array.from(e.dataTransfer.files).find(f => f.type.startsWith("image/"));
-        if (f) processFile(f);
-      }}
     >
-      {files.length > 0 && !isRecording && (
-        <div className="flex flex-wrap gap-2 px-4 pt-3">
-          {files.map((file, i) => (
-            <div key={i} className="relative group h-16 w-16 rounded-md overflow-hidden border" style={{ borderColor: "#D9E3C8" }}>
-              {previews[file.name] && <img src={previews[file.name]} alt={file.name} className="h-full w-full object-cover" />}
-              <button onClick={() => { setFiles([]); setPreviews({}); }}
-                className="absolute top-1 right-1 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                style={{ background: "rgba(31,42,26,0.7)", color: "#FBFBF3" }}>
-                <Icon.X />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
       <div className="px-4 pt-3">
-        {isRecording
-          ? <VoiceRecorder isRecording={isRecording} onStop={handleRecordingStop} />
-          : (
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              rows={1}
-              placeholder={
-                mode === "search" ? "Search the web…"
-                  : mode === "think" ? "Think deeply…"
-                  : mode === "canvas" ? "Describe for canvas…"
-                  : placeholder
-              }
-              disabled={isLoading}
-              className="w-full resize-none bg-transparent text-sm font-mono focus:outline-none leading-relaxed disabled:opacity-50"
-              style={{ minHeight: 40, maxHeight: 180, color: "#1F2A1A" }}
-            />
-          )}
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          rows={1}
+          placeholder={placeholder}
+          disabled={isLoading}
+          className="w-full resize-none bg-transparent text-sm font-mono focus:outline-none leading-relaxed disabled:opacity-50"
+          style={{ minHeight: 40, maxHeight: 180, color: "#1F2A1A" }}
+        />
       </div>
 
-      <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-1 border-t" style={{ borderColor: "#EEF2E4" }}>
-        <div className="flex items-center gap-0.5 flex-wrap">
-          <Tip label="Attach image">
-            <button onClick={() => fileInputRef.current?.click()} disabled={isRecording}
-              className="flex h-7 w-7 items-center justify-center rounded-full transition-colors disabled:opacity-40"
-              style={{ color: "#8A9478" }}>
-              <Icon.Paperclip />
-            </button>
-          </Tip>
-          <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = ""; }} />
-
-          <span className="mx-1 h-4 w-px" style={{ background: "#D9E3C8" }} />
-
-          <ModeBtn active={mode === "search"} onClick={() => toggleMode("search")} icon={Icon.Globe} label="Search" />
-          <ModeBtn active={mode === "think"} onClick={() => toggleMode("think")} icon={Icon.Brain} label="Think" />
-          <ModeBtn active={mode === "canvas"} onClick={() => toggleMode("canvas")} icon={Icon.Code} label="Canvas" />
+      <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-1 border-t"
+        style={{ borderColor: "#EEF2E4" }}>
+        {/* Left: transparent scope disclosure - honest about what this box does */}
+        <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider"
+          style={{ color: "#8A9478" }}>
+          <span className="w-1 h-1 rounded-full" style={{ background: "#B5432F" }} />
+          This run only · figures verified before sent
         </div>
 
-        <Tip label={isLoading ? "Stop" : isRecording ? "Stop recording" : hasContent ? "Send" : "Voice message"}>
+        <Tip label={isLoading ? "Working…" : hasContent ? "Send" : "Type to send"}>
           <button
-            onClick={() => {
-              if (isLoading) return;
-              if (isRecording) { setIsRecording(false); }
-              else if (hasContent) { handleSubmit(); }
-              else { setIsRecording(true); }
-            }}
-            className="flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 font-medium"
+            onClick={handleSubmit}
+            disabled={isLoading || !hasContent}
+            className="flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 disabled:opacity-40"
             style={
-              isRecording ? { background: "rgba(181,67,47,0.12)", color: "#B5432F" }
+              isLoading ? { background: "rgba(31,42,26,0.06)", color: "#6B7660" }
               : hasContent ? { background: "#1F2A1A", color: "#FBFBF3" }
               : { background: "#EEF2E4", color: "#6B7660" }
             }
           >
-            {isLoading ? <Icon.Stop /> : isRecording ? <Icon.MicOff /> : hasContent ? <Icon.ArrowUp /> : <Icon.Mic />}
+            {isLoading ? <Icon.Stop /> : <Icon.ArrowUp />}
           </button>
         </Tip>
       </div>
@@ -454,7 +314,7 @@ function AgentTrace({ trace }) {
    ANSWER CARD  (ledger sheet with red verification stamp)
 ───────────────────────────────────────────────────────────── */
 function AnswerCard({ turn }) {
-  const { answer, figures = [], rows = [], verified, trace } = turn.result;
+  const { answer, figures = [], rows = [], verified, trace, plan } = turn.result;
 
   return (
     <div className="rounded-md border overflow-hidden mb-6 relative"
@@ -485,6 +345,36 @@ function AnswerCard({ turn }) {
           </p>
         </div>
       </div>
+
+      {plan && (
+        <div className="px-6 pb-5">
+          <div className="rounded-md border overflow-hidden" style={{ background: "#F3F6ED", borderColor: "#D9E3C8" }}>
+            <div className="px-4 py-2.5 flex items-center gap-2 border-b" style={{ background: "#EEF2E4", borderColor: "#D9E3C8" }}>
+              <i className="fa-solid fa-stethoscope text-[11px]" style={{ color: "#B5432F" }} />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: "#6B7660" }}>
+                Resolution plan for {plan.payment_id} · {plan.category}
+              </span>
+              <span className="ml-auto text-[10px] font-mono px-2 py-0.5 rounded uppercase tracking-wide"
+                style={{ background: "#1F2A1A", color: "#FBFBF3" }}>
+                recommend: {plan.recommended_reason}
+              </span>
+            </div>
+            <div className="px-4 py-3.5">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] mb-1" style={{ color: "#8A9478" }}>Root cause</div>
+              <p className="text-[13px] leading-relaxed mb-3" style={{ color: "#1F2A1A" }}>{plan.root_cause}</p>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] mb-1" style={{ color: "#8A9478" }}>Steps</div>
+              <ol className="text-[13px] leading-relaxed space-y-1.5" style={{ color: "#1F2A1A" }}>
+                {plan.steps.map((s, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="font-mono font-semibold shrink-0" style={{ color: "#B5432F" }}>{i + 1}.</span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </div>
+      )}
 
       {figures.length > 0 && (
         <div className="px-6 pb-5">
@@ -637,12 +527,14 @@ function ExampleChips({ examples, onAsk, disabled }) {
 /* ─────────────────────────────────────────────────────────────
    MAIN PAGE
 ───────────────────────────────────────────────────────────── */
-export default function AskPage({ run, showToast, onGoUpload }) {
+export default function AskPage({ run, showToast, onGoUpload, preload }) {
   const [examples, setExamples] = useState([]);
   const [input, setInput] = useState("");
   const [history, setHistory] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [streamTrace, setStreamTrace] = useState(null); // trace revealed one step at a time while busy
   const scrollRef = useRef(null);
+  const lastPreloadToken = useRef(null);
 
   useEffect(() => {
     api.getAskExamples?.().then(d => setExamples(d.examples || [])).catch(() => {});
@@ -654,6 +546,15 @@ export default function AskPage({ run, showToast, onGoUpload }) {
 
   if (!run) return <EmptyState onGoUpload={onGoUpload} />;
 
+  // While the request is in flight, reveal a placeholder trace step-by-step so the user
+  // sees the agent thinking, then replace it with the real trace when the response lands.
+  const PROVISIONAL_TRACE = [
+    { title: "Understanding intent", detail: "classifying question against allowed metrics", status: "running" },
+    { title: "Choosing a deterministic tool", detail: "picking the compute path over audited decisions", status: "running" },
+    { title: "Computing figures", detail: "aggregating from SQLite decisions table", status: "running" },
+    { title: "Verifying every figure", detail: "hallucination guard: any rupee must trace to a computed number", status: "running" },
+  ];
+
   const ask = async (question) => {
     const q = String(question ?? input ?? "").trim();
     if (!q || busy) return;
@@ -664,10 +565,23 @@ export default function AskPage({ run, showToast, onGoUpload }) {
     }
     setInput("");
     setBusy(true);
+    // Streaming reveal: expose provisional steps at ~600ms cadence.
+    setStreamTrace([{ ...PROVISIONAL_TRACE[0] }]);
+    let i = 0;
+    const revealer = setInterval(() => {
+      i += 1;
+      if (i >= PROVISIONAL_TRACE.length) { clearInterval(revealer); return; }
+      setStreamTrace(PROVISIONAL_TRACE.slice(0, i + 1).map((s, k) =>
+        k < i ? { ...s, status: "done", ms: 400 + k * 120 } : s));
+    }, 600);
     try {
       const result = await api.askAgent(runId, q);
+      clearInterval(revealer);
+      setStreamTrace(null);
       setHistory((h) => [...h, { question: q, result }]);
     } catch (e) {
+      clearInterval(revealer);
+      setStreamTrace(null);
       const message = e.message ?? "Something went wrong";
       showToast?.(message, "error");
       setHistory((h) => [...h, {
@@ -684,6 +598,14 @@ export default function AskPage({ run, showToast, onGoUpload }) {
       setBusy(false);
     }
   };
+
+  // Preload handoff from ExceptionsPage: fire the question exactly once per token.
+  useEffect(() => {
+    if (!preload || preload.token === lastPreloadToken.current) return;
+    lastPreloadToken.current = preload.token;
+    if (preload.question) ask(preload.question);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preload, run]);
 
   const handleSend = (message) => {
     const q = message.trim();
@@ -741,13 +663,16 @@ export default function AskPage({ run, showToast, onGoUpload }) {
             </div>
           ))}
 
-          {/* loading state */}
-          {busy && (
-            <div className="rounded-md border p-5 flex items-center gap-3 text-sm mb-5"
-              style={{ background: "#FBFBF3", borderColor: "#D9E3C8", color: "#6B7660" }}>
-              <div className="w-4 h-4 rounded-full border-2 animate-spin flex-shrink-0"
-                style={{ borderColor: "#1F2A1A", borderTopColor: "transparent" }} />
-              Agent is reasoning…
+          {/* streaming reasoning trace while the request is in flight */}
+          {busy && streamTrace && (
+            <div className="rounded-md border p-5 mb-5"
+              style={{ background: "#FBFBF3", borderColor: "#D9E3C8" }}>
+              <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] mb-3"
+                style={{ color: "#B5432F" }}>
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#B5432F" }} />
+                Agent is reasoning
+              </div>
+              <AgentTrace trace={streamTrace} />
             </div>
           )}
         </div>
@@ -775,16 +700,6 @@ export default function AskPage({ run, showToast, onGoUpload }) {
         </div>
       </div>
 
-      <style>{`
-        @keyframes pulse {
-          from { opacity: 0.5; transform: scaleY(0.7); }
-          to   { opacity: 1;   transform: scaleY(1.2); }
-        }
-        @keyframes pulse-dot {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-      `}</style>
     </div>
   );
 }

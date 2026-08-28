@@ -3,6 +3,12 @@ import { formatINR } from "../api.js";
 import * as api from "../api.js";
 import FeeDonut from "../components/FeeDonut.jsx";
 import SourceFilesCard from "../components/SourceFilesCard.jsx";
+import CashPositionCard from "../components/CashPositionCard.jsx";
+import CashForecastCard from "../components/CashForecastCard.jsx";
+import TaxExposureCard from "../components/TaxExposureCard.jsx";
+import QualitySignalsCard from "../components/QualitySignalsCard.jsx";
+import RazorpayVerificationCard from "../components/RazorpayVerificationCard.jsx";
+import RepairAgentCard from "../components/RepairAgentCard.jsx";
 import { openReport } from "../report.js";
 
 /* ————————————————————————————————————————————————
@@ -784,12 +790,42 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
           <MetricCard title="Exceptions" subtitle="(Needs review)" value={`${m.exceptions_total}`} numeric={m.exceptions_total} footnote={`${exceptionsPct}% of records`} tone="negative" delay={160} />
         </section>
 
-        {evalData && (
+        {/* Sponsor-product truth anchor: live Razorpay API handshake done at ingest */}
+        <section className="dash-section" style={{ animationDelay: "10ms" }}>
+          <RazorpayVerificationCard runId={run.runId} />
+        </section>
+
+        {/* Finance Controller: cash position — the "run the books AND the cash position" view */}
+        <section className="dash-section" style={{ animationDelay: "20ms" }}>
+          <CashPositionCard runId={run.runId} />
+        </section>
+
+        {/* Forward cash forecaster — projects in-flight settlements to their expected bank date */}
+        <section className="dash-section" style={{ animationDelay: "30ms" }}>
+          <CashForecastCard runId={run.runId} />
+        </section>
+
+        {/* Tax-line matcher — MDR / GST / TCS drift + per-record exposure */}
+        <section className="dash-section" style={{ animationDelay: "40ms" }}>
+          <TaxExposureCard runId={run.runId} />
+        </section>
+
+        {/* Repair Agent — per-record strategy branching, real choices under uncertainty */}
+        <section className="dash-section" style={{ animationDelay: "45ms" }}>
+          <RepairAgentCard meta={m} />
+        </section>
+
+        {evalData?.accuracy && (
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 dash-section">
             <AccuracyCard acc={evalData.accuracy} onFirstInteract={onFirstInteract} />
             <FooterStrip meta={m} />
           </section>
         )}
+
+        {/* Ground-truth-free quality signals for uploaded runs (or as a companion to AccuracyCard on demo) */}
+        <section className="dash-section" style={{ animationDelay: "50ms" }}>
+          <QualitySignalsCard runId={run.runId} />
+        </section>
 
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 dash-section items-start" style={{ animationDelay: "60ms" }}>
           <StackedBreakdown segments={segments} total={bdTotal} onFirstInteract={onFirstInteract} />
@@ -811,14 +847,14 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
           />
         </section>
 
-        {!evalData && (
+        {!evalData?.accuracy && (
           <section className="dash-section" style={{ animationDelay: "150ms" }}>
             <FooterStrip meta={m} />
           </section>
         )}
 
         <section className="dash-section" style={{ animationDelay: "180ms" }}>
-          <SourceFilesCard isDemo={run.isDemo} height={380} />
+          <SourceFilesCard isDemo={run.isDemo} runId={run.runId} height={380} />
         </section>
       </div>
     </div>

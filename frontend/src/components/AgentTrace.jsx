@@ -91,6 +91,29 @@ export default function AgentTrace({ trace, label = "Agent trace", figuresOf, ge
                   {s.detail}
                 </div>
 
+                {/* per-step sub-chips: real counts / choices the engine made */}
+                {Array.isArray(s.substeps) && s.substeps.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {s.substeps.map((t, k) => (
+                      <span
+                        key={k}
+                        className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 rm-mono text-[10px]"
+                        style={{
+                          background: "var(--rm-card)",
+                          color: "var(--rm-ink-soft)",
+                          border: "1px dashed var(--rm-line)",
+                        }}
+                      >
+                        <span
+                          className="inline-block w-1 h-1 rounded-full"
+                          style={{ background: s.status === "refused" || s.status === "caught" ? "var(--rm-rust)" : "var(--rm-moss)" }}
+                        />
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 {/* collapsible plain-English explainer for this step */}
                 {info && isOpen && (
                   <div
