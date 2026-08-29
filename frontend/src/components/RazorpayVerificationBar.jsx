@@ -19,6 +19,7 @@ export default function RazorpayVerificationBar({ runId }) {
 
   useEffect(() => {
     if (!runId) return;
+    setData(null);  // clear old run's data before fetching so the bar never shows stale state
     api.getRazorpayVerification(runId).then(setData).catch(() => setData(null));
   }, [runId]);
 

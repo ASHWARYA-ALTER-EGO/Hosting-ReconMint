@@ -138,6 +138,9 @@ export default function AppShell() {
 
   const afterRun = useCallback(
     async (resp, isDemo) => {
+      // IMPORTANT: clear stale evalData FIRST so components never render mixed state
+      // (e.g. showing the previous demo's F1 accuracy alongside a fresh upload's numbers).
+      setEvalData(null);
       setRun({
         runId: resp.run_id,
         meta: resp.meta,
@@ -209,7 +212,11 @@ export default function AppShell() {
             onGoDashboard={() => setView("dashboard")} />
         )}
         {view === "dashboard" && (
+          // key={run?.runId} force-remounts every child on run change so no card can
+          // ever render mixed state from a previous run (belt + suspenders on top of
+          // the per-component useEffect resets).
           <DashboardPage
+            key={run?.runId || "no-run"}
             run={run}
             evalData={evalData}
             onExport={() => run && window.open(api.auditExportUrl(run.runId), "_blank")}
@@ -218,7 +225,7 @@ export default function AppShell() {
           />
         )}
         {view === "exceptions" && (
-          <ExceptionsPage run={run} showToast={showToast}
+          <ExceptionsPage key={run?.runId || "no-run"} run={run} showToast={showToast}
             onGoUpload={() => setView("upload")}
             onAskAbout={askAbout} />
         )}

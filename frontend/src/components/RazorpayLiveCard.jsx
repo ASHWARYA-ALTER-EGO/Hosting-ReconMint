@@ -26,6 +26,7 @@ export default function RazorpayLiveCard({ runId }) {
   useEffect(() => {
     if (!runId) return;
     let cancelled = false;
+    setData(null); setErr(null); setExpanded(false);  // reset before fetching new run's data
     api.getRazorpayVerification(runId)
       .then((d) => { if (!cancelled) setData(d); })
       .catch((e) => { if (!cancelled) setErr(String(e.message || e)); });
