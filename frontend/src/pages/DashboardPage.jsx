@@ -583,10 +583,26 @@ function Waterfall({ bd, onFirstInteract }) {
 }
 
 function FooterStrip({ meta }) {
+  // These counters capture what happened AT reconcile time. Explain-on-demand LLM
+  // calls fired from the Exceptions drawer are counted separately and are visible
+  // per-exception (the "Verified" badge on an AI explanation).
+  const llmUsed = (meta.llm_calls || 0) > 0;
   const stats = [
-    { icon: "fa-solid fa-microchip", bg: "rgba(31,42,26,0.06)", color: C.ink, label: "AI cost (this run)", value: `$${(meta.llm_cost_usd_total || 0).toFixed(4)}` },
-    { icon: "fa-solid fa-brain", bg: "rgba(184,134,59,0.12)", color: C.ochre, label: "Model", value: meta.llm_calls ? "gpt-4o-mini" : "not used" },
-    { icon: "fa-regular fa-circle-check", bg: "rgba(75,123,78,0.12)", color: C.moss, label: "AI explanations", value: `${meta.llm_verified_count || 0} verified / ${meta.llm_calls || 0} calls` },
+    { icon: "fa-solid fa-microchip", bg: "rgba(31,42,26,0.06)", color: C.ink,
+      label: "AI cost at reconcile",
+      value: llmUsed ? `$${(meta.llm_cost_usd_total || 0).toFixed(4)}` : "$0.0000",
+      sub: llmUsed ? "verified against hallucination guard" : "reconcile ran without LLM (fast path)" },
+    { icon: "fa-solid fa-brain", bg: "rgba(184,134,59,0.12)", color: C.ochre,
+      label: "Model",
+      value: llmUsed ? "gpt-4o-mini" : "on-demand only",
+      sub: llmUsed ? "verified narration on every explain call"
+                   : "click Explain with AI on any exception to invoke" },
+    { icon: "fa-regular fa-circle-check", bg: "rgba(75,123,78,0.12)", color: C.moss,
+      label: "AI explanations",
+      value: llmUsed
+        ? `${meta.llm_verified_count || 0} verified / ${meta.llm_calls || 0} calls`
+        : "0 / 0 at reconcile",
+      sub: "hallucination verifier rejected any ungrounded rupee" },
   ];
   return (
     <PremiumCard as="footer" className="p-2 flex flex-col sm:flex-row items-stretch sm:items-center">
@@ -602,6 +618,7 @@ function FooterStrip({ meta }) {
           <div className="min-w-0">
             <div className="text-xs truncate" style={{ color: C.t40 }}>{s.label}</div>
             <div className="text-sm font-semibold truncate" style={{ color: C.ink }}>{s.value}</div>
+            {s.sub && <div className="text-[10px] truncate" style={{ color: C.t40 }} title={s.sub}>{s.sub}</div>}
           </div>
         </div>
       ))}
@@ -787,6 +804,7 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
       </header>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
+        {/* Always-on metric strip - the operator's landing view. */}
         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
           <MetricCard title="Match Rate" subtitle="(Reconciled)" value={`${m.reconciled_rate_pct}%`} numeric={m.reconciled_rate_pct} footnote={`${m.match_rate_pct}% matched (incl. fuzzy)`} delay={0} />
           <MetricCard title="Records Processed" value={`${m.settlement_active}`} numeric={m.settlement_active} footnote={`${m.dataset_size} rows ingested`} delay={40} />
@@ -795,78 +813,115 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
           <MetricCard title="Exceptions" subtitle="(Needs review)" value={`${m.exceptions_total}`} numeric={m.exceptions_total} footnote={`${exceptionsPct}% of records`} tone="negative" delay={160} />
         </section>
 
-        {/* Sponsor-product truth anchor: live Razorpay API handshake done at ingest */}
-        <section className="dash-section" style={{ animationDelay: "10ms" }}>
-          <RazorpayVerificationCard runId={run.runId} />
-        </section>
-
-        {/* Finance Controller: cash position — the "run the books AND the cash position" view */}
-        <section className="dash-section" style={{ animationDelay: "20ms" }}>
-          <CashPositionCard runId={run.runId} />
-        </section>
-
-        {/* Forward cash forecaster — projects in-flight settlements to their expected bank date */}
-        <section className="dash-section" style={{ animationDelay: "30ms" }}>
-          <CashForecastCard runId={run.runId} />
-        </section>
-
-        {/* Tax-line matcher — MDR / GST / TCS drift + per-record exposure */}
-        <section className="dash-section" style={{ animationDelay: "40ms" }}>
-          <TaxExposureCard runId={run.runId} />
-        </section>
-
-        {/* Fee-slab · revenue advice — turns audit into an actionable sales conversation */}
-        <section className="dash-section" style={{ animationDelay: "43ms" }}>
-          <FeeSlabCard runId={run.runId} />
-        </section>
-
-        {/* Repair Agent — per-record strategy branching, real choices under uncertainty */}
-        <section className="dash-section" style={{ animationDelay: "45ms" }}>
-          <RepairAgentCard meta={m} />
-        </section>
-
-        {evalData?.accuracy && (
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 dash-section">
-            <AccuracyCard acc={evalData.accuracy} onFirstInteract={onFirstInteract} />
-            <FooterStrip meta={m} />
-          </section>
-        )}
-
-        {/* Ground-truth-free quality signals for uploaded runs (or as a companion to AccuracyCard on demo) */}
-        <section className="dash-section" style={{ animationDelay: "50ms" }}>
-          <QualitySignalsCard runId={run.runId} />
-        </section>
-
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 dash-section items-start" style={{ animationDelay: "60ms" }}>
-          <StackedBreakdown segments={segments} total={bdTotal} onFirstInteract={onFirstInteract} />
-          {evalData ? (
-            <Waterfall bd={evalData.breakdown} onFirstInteract={onFirstInteract} />
-          ) : (
-            <PremiumCard className="p-6 flex items-center justify-center text-sm text-center min-h-[220px]" style={{ color: C.t40 }}>
-              Full breakdown &amp; accuracy are shown for demo runs (which have ground truth).
-            </PremiumCard>
-          )}
-        </section>
-
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 dash-section" style={{ animationDelay: "120ms" }}>
-          <FeeDonut fees={m.fee_totals_paise} />
-          <FeeInsightsCard
-            feeTotalsPaise={m.fee_totals_paise}
-            reconciledAmountPaise={m.reconciled_amount_paise}
-            anomalyCount={evalData?.breakdown?.fee_anomaly || 0}
-          />
-        </section>
-
-        {!evalData?.accuracy && (
-          <section className="dash-section" style={{ animationDelay: "150ms" }}>
-            <FooterStrip meta={m} />
-          </section>
-        )}
-
-        <section className="dash-section" style={{ animationDelay: "180ms" }}>
-          <SourceFilesCard isDemo={run.isDemo} runId={run.runId} height={380} />
-        </section>
+        {/* Tabbed body — kills scroll fatigue by grouping cards by intent. */}
+        <DashboardTabs
+          run={run}
+          m={m}
+          evalData={evalData}
+          segments={segments}
+          bdTotal={bdTotal}
+          onFirstInteract={onFirstInteract}
+        />
       </div>
+    </div>
+  );
+}
+
+/**
+ * DashboardTabs — three lanes: Cash · Reconciliation · Audit.
+ * Each lane renders its cards lazily; only the active lane mounts.
+ */
+function DashboardTabs({ run, m, evalData, segments, bdTotal, onFirstInteract }) {
+  const [tab, setTab] = useState("cash");
+
+  // Sub-set of tabs. Each has a label, icon, and a one-liner shown as a helper
+  // subtitle so a judge understands what's inside before clicking.
+  const TABS = [
+    { id: "cash",     label: "Cash",           icon: "fa-scale-balanced",     hint: "position now · forecast next 7d · tax exposure · slab advice" },
+    { id: "recon",    label: "Reconciliation", icon: "fa-diagram-project",    hint: "match breakdown · Repair Agent · source files" },
+    { id: "audit",    label: "Audit",          icon: "fa-shield-halved",      hint: "sponsor API handshake · accuracy · quality signals · AI cost" },
+  ];
+
+  return (
+    <div>
+      {/* Tab bar */}
+      <div className="flex items-center gap-1 mb-5 border-b" style={{ borderColor: C.border }}>
+        {TABS.map((t) => {
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className="relative flex items-center gap-2 px-4 py-2.5 text-sm font-mono font-semibold transition-colors"
+              style={{
+                color: active ? C.ink : C.t60,
+                background: active ? "rgba(31,42,26,0.04)" : "transparent",
+              }}
+            >
+              <i className={`fa-solid ${t.icon} text-xs`} style={{ color: active ? C.red : C.t40 }}></i>
+              <span>{t.label}</span>
+              {active && (
+                <span className="absolute left-2 right-2 -bottom-[1px] h-[2px] rounded-t" style={{ background: C.red }} />
+              )}
+            </button>
+          );
+        })}
+        <span className="ml-auto pr-2 text-[10px]" style={{ color: C.t40 }}>
+          {TABS.find((t) => t.id === tab)?.hint}
+        </span>
+      </div>
+
+      {/* Cash lane — the Finance Controller view. */}
+      {tab === "cash" && (
+        <div className="space-y-6">
+          <section className="dash-section"><CashPositionCard runId={run.runId} /></section>
+          <section className="dash-section" style={{ animationDelay: "40ms" }}>
+            <CashForecastCard runId={run.runId} forceDemoMode={run.isDemo} />
+          </section>
+          <section className="dash-section" style={{ animationDelay: "80ms" }}>
+            <TaxExposureCard runId={run.runId} />
+          </section>
+          <section className="dash-section" style={{ animationDelay: "120ms" }}>
+            <FeeSlabCard runId={run.runId} />
+          </section>
+        </div>
+      )}
+
+      {/* Reconciliation lane — how the numbers were arrived at. */}
+      {tab === "recon" && (
+        <div className="space-y-6">
+          <section className="dash-section">
+            <StackedBreakdown segments={segments} total={bdTotal} onFirstInteract={onFirstInteract} />
+          </section>
+          <section className="dash-section" style={{ animationDelay: "40ms" }}>
+            <RepairAgentCard meta={m} />
+          </section>
+          <section className="dash-section" style={{ animationDelay: "80ms" }}>
+            <FeeDonut fees={m.fee_totals_paise} />
+          </section>
+          <section className="dash-section" style={{ animationDelay: "120ms" }}>
+            <SourceFilesCard isDemo={run.isDemo} runId={run.runId} height={380} />
+          </section>
+        </div>
+      )}
+
+      {/* Audit lane — proof and trust. */}
+      {tab === "audit" && (
+        <div className="space-y-6">
+          <section className="dash-section"><RazorpayVerificationCard runId={run.runId} /></section>
+          {evalData?.accuracy && (
+            <section className="dash-section" style={{ animationDelay: "40ms" }}>
+              <AccuracyCard acc={evalData.accuracy} onFirstInteract={onFirstInteract} />
+            </section>
+          )}
+          <section className="dash-section" style={{ animationDelay: "60ms" }}>
+            <QualitySignalsCard runId={run.runId} />
+          </section>
+          <section className="dash-section" style={{ animationDelay: "100ms" }}>
+            <FooterStrip meta={m} />
+          </section>
+        </div>
+      )}
     </div>
   );
 }

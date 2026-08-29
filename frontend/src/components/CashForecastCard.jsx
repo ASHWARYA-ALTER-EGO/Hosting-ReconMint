@@ -47,21 +47,41 @@ function labelFor(iso, todayIso) {
   return `${DAY_NAME[d.getDay()]} ${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
 }
 
-export default function CashForecastCard({ runId }) {
+export default function CashForecastCard({ runId, forceDemoMode = false }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
   const [horizon, setHorizon] = useState(7);
   const [selectedDay, setSelectedDay] = useState(null);
+  const [showPastDue, setShowPastDue] = useState(false);
+  const [asOfOverride, setAsOfOverride] = useState(null);
+  // If the caller flags demo mode (e.g. demo run) or if a prior fetch showed the
+  // horizon empty with past-due settlements pending, auto-enable the historical
+  // as_of override so the chart isn't a wall of empty bars.
+  const [autoDemo, setAutoDemo] = useState(forceDemoMode);
 
   useEffect(() => {
     if (!runId) return;
     let cancelled = false;
-    setData(null); setErr(null); setSelectedDay(null);
-    api.getCashForecast(runId, { horizon })
-      .then((d) => { if (!cancelled) setData(d); })
+    setData(null); setErr(null); setSelectedDay(null); setShowPastDue(false);
+    // Compute the effective as_of. Priority: user override > auto-demo (400d ago) > backend "today".
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const shifted = new Date(new Date(todayIso).getTime() - 400 * 86400000)
+      .toISOString().slice(0, 10);
+    const effectiveAsOf = asOfOverride || (autoDemo ? shifted : null);
+    api.getCashForecast(runId, { horizon, asOf: effectiveAsOf })
+      .then((d) => {
+        if (cancelled) return;
+        setData(d);
+        // Self-heal: if the horizon is empty AND past-due has records, flip auto-demo on
+        // once so the operator sees a meaningful chart without clicking anything.
+        if (!autoDemo && !asOfOverride
+            && d.totals.in_horizon_paise === 0 && d.past_due.count > 0) {
+          setAutoDemo(true);
+        }
+      })
       .catch((e) => { if (!cancelled) setErr(String(e.message || e)); });
     return () => { cancelled = true; };
-  }, [runId, horizon]);
+  }, [runId, horizon, asOfOverride, autoDemo]);
 
   if (err) {
     return (
@@ -134,22 +154,90 @@ export default function CashForecastCard({ runId }) {
           <div className="text-lg font-semibold tabular-nums" style={{ color: C.ink }}>{inrShort(totals.in_horizon_paise)}</div>
           <div className="text-[10px]" style={{ color: C.softText }}>{totals.in_horizon_count} settlement{totals.in_horizon_count === 1 ? "" : "s"}</div>
         </div>
-        <div className="p-3 rounded-lg border" style={{ borderColor: C.border, background: past_due.amount_paise > 0 ? "rgba(181,67,47,0.08)" : "transparent" }}>
-          <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: past_due.amount_paise > 0 ? C.rust : C.softText }}>
-            Past-due
-            {past_due.amount_paise > 0 && <span className="ml-1 animate-pulse">●</span>}
+        <button
+          type="button"
+          onClick={() => past_due.count > 0 && setShowPastDue((v) => !v)}
+          disabled={past_due.count === 0}
+          className={`p-3 rounded-lg border text-left transition-colors ${past_due.count > 0 ? "hover:brightness-95 cursor-pointer" : ""}`}
+          style={{
+            borderColor: past_due.amount_paise > 0 ? C.rust : C.border,
+            background: past_due.amount_paise > 0 ? "rgba(181,67,47,0.08)" : "transparent",
+          }}
+        >
+          <div className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1"
+            style={{ color: past_due.amount_paise > 0 ? C.rust : C.softText }}>
+            <span>Past-due</span>
+            {past_due.amount_paise > 0 && <span className="animate-pulse">●</span>}
+            {past_due.count > 0 && (
+              <span className="ml-auto text-[9px]">
+                <i className={`fa-solid fa-chevron-${showPastDue ? "up" : "down"} text-[8px]`} />
+              </span>
+            )}
           </div>
           <div className="text-lg font-semibold tabular-nums" style={{ color: C.ink }}>{inrShort(past_due.amount_paise)}</div>
           <div className="text-[10px]" style={{ color: C.softText }}>
             {past_due.count} overdue by T+{t_plus} rule
           </div>
-        </div>
+        </button>
         <div className="p-3 rounded-lg border" style={{ borderColor: C.border }}>
           <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.ochre }}>Beyond horizon</div>
           <div className="text-lg font-semibold tabular-nums" style={{ color: C.ink }}>{inrShort(totals.beyond_horizon_paise)}</div>
           <div className="text-[10px]" style={{ color: C.softText }}>{beyond_horizon.count} land after +{horizon}d</div>
         </div>
       </div>
+
+      {/* past-due drilldown when the chip is expanded */}
+      {showPastDue && past_due.count > 0 && (
+        <div className="mx-6 mb-4 p-4 rounded-lg border" style={{ borderColor: C.rust, background: "rgba(181,67,47,0.04)" }}>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] mb-2" style={{ color: C.rust }}>
+            {past_due.count} past-due settlements · escalate to bank ops now
+          </div>
+          <div className="max-h-28 overflow-y-auto text-[11px] leading-[1.7] grid grid-cols-2 sm:grid-cols-3 gap-x-4">
+            {past_due.ids.map((id) => (
+              <div key={id} className="truncate font-mono" style={{ color: C.softText }} title={id}>· {id}</div>
+            ))}
+            {past_due.count > past_due.ids.length && (
+              <div className="col-span-full pt-1 text-[10px] italic" style={{ color: C.softText }}>
+                + {past_due.count - past_due.ids.length} more not listed — view Exceptions for the full list
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* If auto-demo kicked in, tell the operator so they know the chart is a projection */}
+      {autoDemo && (
+        <div className="mx-6 mb-3 p-3 rounded-lg border-l-2 text-[11px] leading-relaxed"
+          style={{ borderColor: C.moss, background: "rgba(75,123,78,0.06)", color: C.softText }}>
+          <span style={{ color: C.ink, fontWeight: 600 }}>Demo projection mode ·</span>{" "}
+          Projecting as-of <b>{as_of}</b> so the chart shows real landings from your batch.
+          <button
+            onClick={() => { setAutoDemo(false); setAsOfOverride(null); }}
+            className="ml-2 text-[10px] font-semibold uppercase tracking-wider underline"
+            style={{ color: C.moss }}
+          >
+            switch to today
+          </button>
+        </div>
+      )}
+
+      {/* Empty-horizon banner only when auto-demo is OFF and nothing lands */}
+      {!autoDemo && totals.in_horizon_paise === 0
+        && (past_due.count > 0 || beyond_horizon.count > 0) && (
+        <div className="mx-6 mb-3 p-3 rounded-lg border-l-2 text-[11px] leading-relaxed"
+          style={{ borderColor: C.ochre, background: "rgba(184,134,59,0.06)", color: C.softText }}>
+          <span style={{ color: C.ink, fontWeight: 600 }}>No cash landing in the next {horizon} days.</span>{" "}
+          {past_due.count > 0 && <>All {past_due.count} in-flight settlements are already past-due (T+{t_plus} rule).</>}
+          {beyond_horizon.count > 0 && <> {beyond_horizon.count} land after the {horizon}-day window — extend the horizon.</>}
+          <button
+            onClick={() => setAutoDemo(true)}
+            className="ml-2 text-[10px] font-semibold uppercase tracking-wider underline"
+            style={{ color: C.rust }}
+          >
+            switch to demo projection
+          </button>
+        </div>
+      )}
 
       {/* bar chart */}
       <div className="px-6 pb-2">

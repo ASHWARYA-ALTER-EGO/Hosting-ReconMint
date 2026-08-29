@@ -303,11 +303,11 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
     }
   };
 
-  const runDemo = async () => {
+  const runDemo = async (useLlm = false) => {
     setError(null);
-    setBusy("demo");
+    setBusy(useLlm ? "demo-llm" : "demo");
     try {
-      const resp = await onRunDemo(false);
+      const resp = await onRunDemo(useLlm);
       setRunResult(resp);
     } catch (err) {
       showToast(String(err.message), "error");
@@ -731,12 +731,33 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
             {busy === "upload" ? (<><span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin mr-2.5" />Reconciling…</>) : (<>Reconcile now <i className="fa-solid fa-arrow-right ml-2.5 opacity-80"></i></>)}
           </button>
           <span className="rm-body text-sm font-medium" style={{ color: "var(--rm-ink-soft)" }}>or</span>
-          <button onClick={runDemo} disabled={busy} className="rm-mono px-8 py-3.5 rounded-lg font-medium hover:-translate-y-0.5 active:translate-y-0 flex items-center transition-all duration-200 disabled:opacity-60 disabled:hover:translate-y-0" style={{ background: "var(--rm-card)", border: "1px solid var(--rm-ink)", color: "var(--rm-ink)", boxShadow: "0 1px 2px rgba(31,42,26,0.04), 0 8px 16px -10px rgba(31,42,26,0.2)" }}>
+          <button onClick={() => runDemo(false)} disabled={busy} className="rm-mono px-8 py-3.5 rounded-lg font-medium hover:-translate-y-0.5 active:translate-y-0 flex items-center transition-all duration-200 disabled:opacity-60 disabled:hover:translate-y-0" style={{ background: "var(--rm-card)", border: "1px solid var(--rm-ink)", color: "var(--rm-ink)", boxShadow: "0 1px 2px rgba(31,42,26,0.04), 0 8px 16px -10px rgba(31,42,26,0.2)" }}>
             <i className="fa-solid fa-cloud-arrow-up mr-2.5" style={{ color: "var(--rm-rust)" }}></i>
             {busy === "demo" ? "Running demo…" : "Try sample data (demo)"}
           </button>
         </div>
-        <div className="text-center -mt-4 mb-8">
+        {/* premium demo suggestion — shows real AI cost, verified explanations, fills every card */}
+        <div className="max-w-2xl mx-auto -mt-4 mb-6 rounded-xl px-5 py-4 flex items-start gap-4"
+          style={{ background: "var(--rm-card-alt)", border: "1px solid var(--rm-line)" }}>
+          <div className="w-9 h-9 rounded-md flex items-center justify-center shrink-0"
+            style={{ background: "var(--rm-ink)", color: "var(--rm-card)" }}>
+            <i className="fa-solid fa-wand-magic-sparkles text-xs"></i>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="rm-heading-sm text-sm font-semibold">Premium demo: reconcile with LLM narration</div>
+            <div className="rm-body text-xs mt-1" style={{ color: "var(--rm-ink-soft)" }}>
+              Runs the full pipeline plus a verified GPT-4o-mini explainer on every exception.
+              Populates the AI cost / model / explanations strip with real numbers (~$0.02, ~30s).
+              Every LLM sentence is magnitude-checked by the hallucination verifier before it's shown.
+            </div>
+          </div>
+          <button onClick={() => runDemo(true)} disabled={busy}
+            className="rm-mono text-xs font-semibold px-4 py-2 rounded-md shrink-0 transition-all disabled:opacity-60 flex items-center gap-2"
+            style={{ background: "var(--rm-rust)", color: "#fff", boxShadow: "0 4px 12px -6px rgba(181,67,47,0.5)" }}>
+            {busy === "demo-llm" ? (<><span className="w-3 h-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />Running…</>) : (<>Run with LLM <i className="fa-solid fa-arrow-right"></i></>)}
+          </button>
+        </div>
+        <div className="text-center mb-8">
           <a href={SAMPLE_DATASET_URL} target="_blank" rel="noopener noreferrer" className="rm-mono text-xs font-medium underline underline-offset-2" style={{ color: "var(--rm-ink-soft)" }}>
             or download the sample files from Google Drive to test locally →
           </a>

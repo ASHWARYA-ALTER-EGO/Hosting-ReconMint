@@ -8,12 +8,50 @@ import AskPage from "./pages/AskPage.jsx";
 import ReconMintLanding from "./pages/ReconMintLanding.jsx";
 import * as api from "./api.js";
 
+// Session persistence — keep the operator's last run alive across page reloads and
+// even browser restarts, so refreshing the tab doesn't force a re-reconcile. We
+// use localStorage (survives tab close) with a 24-hour TTL, plus a cookie for
+// good measure so it's visible in DevTools too. On app mount we verify the run
+// still exists on the backend (a restart wipes the audit DB); if not we silently
+// drop the stored run and land on the landing page.
+
 const RUN_STORAGE_KEY = "reconmint_last_run";
+const COOKIE_KEY = "reconmint_last_run";
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
+
+function readCookie(name) {
+  try {
+    const kv = document.cookie.split("; ").find((r) => r.startsWith(`${name}=`));
+    return kv ? decodeURIComponent(kv.split("=", 2)[1]) : null;
+  } catch { return null; }
+}
+function writeCookie(name, value, maxAgeSec) {
+  try {
+    const parts = [`${name}=${encodeURIComponent(value)}`, `path=/`, `max-age=${maxAgeSec}`, "SameSite=Lax"];
+    document.cookie = parts.join("; ");
+  } catch { /* noop */ }
+}
+function clearCookie(name) {
+  try { document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`; } catch { /* noop */ }
+}
 
 function loadStoredRun() {
   try {
-    const raw = sessionStorage.getItem(RUN_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const raw = localStorage.getItem(RUN_STORAGE_KEY);
+    if (!raw) {
+      // fallback: reconstruct minimal run from cookie if localStorage was cleared
+      const cookieRunId = readCookie(COOKIE_KEY);
+      return cookieRunId ? { runId: cookieRunId, meta: null, savedAt: 0, hydrating: true } : null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.runId) return null;
+    const age = Date.now() - (parsed.savedAt || 0);
+    if (age > SESSION_TTL_MS) {
+      localStorage.removeItem(RUN_STORAGE_KEY);
+      clearCookie(COOKIE_KEY);
+      return null;
+    }
+    return { ...parsed, hydrating: true };  // mark for backend re-verification
   } catch {
     return null;
   }
@@ -32,14 +70,54 @@ export default function AppShell() {
     setView("ask");
   }, []);
 
+  // Persist run to localStorage + cookie on every change so a tab close / browser
+  // restart still gives the operator their last run back within the 24h TTL.
   useEffect(() => {
     try {
-      if (run) sessionStorage.setItem(RUN_STORAGE_KEY, JSON.stringify(run));
-      else sessionStorage.removeItem(RUN_STORAGE_KEY);
-    } catch {
-      /* sessionStorage may be unavailable */
-    }
+      if (run && run.runId && !run.hydrating) {
+        const payload = { ...run, hydrating: undefined, savedAt: Date.now() };
+        localStorage.setItem(RUN_STORAGE_KEY, JSON.stringify(payload));
+        writeCookie(COOKIE_KEY, run.runId, Math.floor(SESSION_TTL_MS / 1000));
+      } else if (!run) {
+        localStorage.removeItem(RUN_STORAGE_KEY);
+        clearCookie(COOKIE_KEY);
+      }
+    } catch { /* storage may be unavailable */ }
   }, [run]);
+
+  // On mount: if we loaded a stored run, verify with backend that it still exists
+  // (a restart wipes the audit DB). If gone, silently clear. If present, rehydrate
+  // the full meta + breakdown so the Dashboard etc. work without a re-reconcile.
+  useEffect(() => {
+    if (!run || !run.hydrating) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const meta = await api.getRun(run.runId);
+        if (cancelled) return;
+        const [breakdown, evalRes] = await Promise.all([
+          api.getRunBreakdown(run.runId).catch(() => null),
+          run.isDemo ? api.getEvalDemo().catch(() => null) : Promise.resolve(null),
+        ]);
+        if (cancelled) return;
+        setRun({ runId: run.runId, meta, isDemo: !!run.isDemo,
+                 severityCounts: run.severityCounts || null });
+        if (evalRes) {
+          if (breakdown) evalRes.breakdown = breakdown;
+          setEvalData(evalRes);
+        } else if (breakdown) {
+          setEvalData({ breakdown });
+        }
+        showToast("Restored your last reconciliation run.");
+      } catch {
+        // Backend doesn't have this run anymore (restart / expired). Silent clear.
+        if (cancelled) return;
+        setRun(null);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const showToast = useCallback((message, tone = "success") => {
     setToast({ message, tone });

@@ -582,7 +582,7 @@ function Drawer({ item, onClose, onResolve, resolving, onExplain, explaining, sh
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-auto p-7 overscroll-contain">
+        <div className="flex-1 overflow-auto p-7 overscroll-contain rm-scroll">
           {tab === "overview" && (
             <div className="animate-[fadeIn_.2s_ease]">
               <div className="bg-[#eef2e8] p-5 border border-[#c7d1bc] grid grid-cols-2 gap-y-3 gap-x-6 text-sm mb-6">
@@ -746,7 +746,16 @@ function Drawer({ item, onClose, onResolve, resolving, onExplain, explaining, sh
                     {item.llmVerified && <span className="bg-[#e6ebdd] text-[#3f5233] border border-[#c3d0b3] px-2 py-0.5 normal-case font-bold ml-2 text-[10px]">Verified</span>}
                   </h4>
                 </div>
-                <p className="text-sm text-[#3d4636] leading-relaxed font-medium">{item.explanation}</p>
+                {item.explanation ? (
+                  <p className="text-sm text-[#3d4636] leading-relaxed font-medium whitespace-pre-wrap break-words">
+                    {item.explanation}
+                  </p>
+                ) : (
+                  <p className="text-[13px] text-[#9aa590] italic">
+                    No deterministic explanation was recorded for this record.
+                    Click <b>Explain with AI</b> below to generate a verified one.
+                  </p>
+                )}
                 {item.isLlm ? (
                   <div className="flex items-center gap-3 text-xs text-[#5c6b52] font-medium pt-4 mt-4 border-t border-[#c7d1bc]">
                     <span><i className="fa-solid fa-microchip text-[#9aa590] mr-1"></i>{item.llmModel || "gpt-4o-mini"}</span>
@@ -995,7 +1004,8 @@ export default function ExceptionsPage({ run, showToast, onGoUpload, onAskAbout 
             </div>
           </div>
 
-          <div ref={scrollRef} onScroll={onTableScroll} className="flex-1 overflow-auto overscroll-contain">
+          <div ref={scrollRef} onScroll={onTableScroll}
+            className="flex-1 overflow-auto overscroll-contain rm-scroll">
             {loading ? (
               <div className="p-4 space-y-2.5">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -1124,6 +1134,13 @@ export default function ExceptionsPage({ run, showToast, onGoUpload, onAskAbout 
         @keyframes popIn { from { opacity: 0; transform: scale(0.95) translateY(-2px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Slim brand-matched scrollbar for tables + drawer content that overflow. */
+        .rm-scroll { scrollbar-width: thin; scrollbar-color: #b5452f #eef2e8; }
+        .rm-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+        .rm-scroll::-webkit-scrollbar-track { background: #eef2e8; border-radius: 6px; }
+        .rm-scroll::-webkit-scrollbar-thumb { background: #b5452f; border-radius: 6px; border: 2px solid #eef2e8; }
+        .rm-scroll::-webkit-scrollbar-thumb:hover { background: #8f3323; }
+        .rm-scroll::-webkit-scrollbar-corner { background: #eef2e8; }
         @media (prefers-reduced-motion: reduce) {
           *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
         }

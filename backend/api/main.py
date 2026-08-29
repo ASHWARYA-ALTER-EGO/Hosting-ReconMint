@@ -305,14 +305,31 @@ def ask(payload: AskRequest):
         raise InputValidationError("Question cannot be empty.")
     if not audit.get_run(payload.run_id):
         return JSONResponse(status_code=404, content={"error": "not_found",
-                                                      "detail": f"run {payload.run_id} not found"})
+                                                      "detail": (f"Run '{payload.run_id}' not found. "
+                                                                 "Reconcile a batch first, then ask about it.")})
     try:
         return qa_ask(payload.run_id, question)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        # Return a real, actionable message + a 200-with-degraded-payload so the frontend
+        # can still render the trace instead of showing a bare "Request failed".
+        import traceback
+        detail = f"{exc.__class__.__name__}: {str(exc)[:200]}"
+        # log to server console for post-mortem
+        print("[ask] internal error:", detail)
+        traceback.print_exc()
         return JSONResponse(
-            status_code=500,
-            content={"error": "ask_failed",
-                     "detail": "The agent could not answer that question. Try again in a moment."},
+            status_code=200,
+            content={
+                "question": question,
+                "answer": (f"The agent hit an internal error while answering: {detail}. "
+                           "This usually means the run's audit data is stale or the LLM key "
+                           "is unset — try re-running the reconcile, or check RECONMINT_LLM key."),
+                "figures": [], "rows": [], "verified": False,
+                "trace": [
+                    {"title": "Received question", "detail": question[:80], "ms": 0, "status": "done"},
+                    {"title": "Internal error", "detail": detail, "ms": 0, "status": "refused"},
+                ],
+            },
         )
 
 

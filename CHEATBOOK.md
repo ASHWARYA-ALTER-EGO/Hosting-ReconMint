@@ -7,6 +7,136 @@ Keep this file terse. New entries go at the top.
 
 ---
 
+## Judge-fatigue pass · Dashboard tabs, self-healing forecast, LLM demo push, session persistence (2026-08-29)
+
+### What was wrong (from the audit)
+- 12+ cards stacked vertically → scroll fatigue, bottom cards never seen.
+- Waterfall + StackedBreakdown said the same thing → wasted cognitive load.
+- FeeDonut + FeeInsightsCard side-by-side → redundant visual.
+- Forecast chart empty on demo data (2025-07 dates vs today 2026-08) → looks broken.
+- "AI cost $0.0000" on the free-tier demo → looks like the AI didn't work.
+- Session lost on tab close / reload → judges reload the demo, lose the run, distrust.
+
+### What shipped
+
+**1. DashboardTabs (3 lanes)** — [DashboardPage.jsx](frontend/src/pages/DashboardPage.jsx)
+Split the vertical wall of cards into three intent-based lanes at the top of the Dashboard body:
+- **Cash** — CashPosition · CashForecast · TaxExposure · FeeSlab (the Finance Controller view)
+- **Reconciliation** — StackedBreakdown · RepairAgent · FeeDonut · SourceFiles (how the numbers were arrived at)
+- **Audit** — Razorpay API handshake · AccuracyCard (demo runs only) · QualitySignals · FooterStrip (proof + trust)
+
+Each tab has an icon + label + one-liner subtitle explaining what's inside so a judge knows before clicking. Only the active lane mounts (lazy render).
+
+**2. Killed the Waterfall** — Its shape duplicated StackedBreakdown; kept the bar which is easier to read at a glance. FeeInsightsCard also folded out (its numbers already appear on the Cash tab via TaxExposure + FeeSlab and on the Reconciliation tab via FeeDonut).
+
+**3. Self-healing Forecast** — [CashForecastCard.jsx](frontend/src/components/CashForecastCard.jsx)
+- New `forceDemoMode` prop, defaulted true when the Dashboard renders a demo run.
+- Self-heal logic: if the first fetch returns `in_horizon=0 && past_due>0`, auto-flip to demo projection mode (as_of = today - 400d) so the chart shows real data.
+- New green explainer banner reads: *"Demo projection mode · Projecting as-of YYYY-MM-DD so the chart shows real landings from your batch — switch to today"*.
+- Manual off-switch is a one-click underline link.
+
+**4. "Run with LLM" premium demo CTA** — [UploadPage.jsx](frontend/src/pages/UploadPage.jsx)
+New brand-matched suggestion card under the demo button:
+*"Premium demo: reconcile with LLM narration. Runs the full pipeline plus a verified
+GPT-4o-mini explainer on every exception. Populates the AI cost / model / explanations
+strip with real numbers (~$0.02, ~30s). Every LLM sentence is magnitude-checked by
+the hallucination verifier before it's shown."*
+Rust-red **"Run with LLM"** button forwards to `onRunDemo(true)` — populates the AI
+cost strip with real numbers so the Audit tab shows real activity instead of $0.0000.
+
+**5. Session persistence** — [AppShell.jsx](frontend/src/AppShell.jsx)
+- `localStorage` with a 24-hour TTL, plus a `document.cookie` fallback.
+- On mount: if a stored run is found, verify with backend (`GET /runs/:id`). If the
+  backend still has it, rehydrate meta + breakdown and show a toast:
+  *"Restored your last reconciliation run."*
+- If the backend was restarted and the run is gone, silent clear.
+- Reload the tab → your last run is back. Close the browser and reopen → still there.
+
+### Files touched
+- `frontend/src/AppShell.jsx` — localStorage + cookie + 24h TTL + backend rehydrate on mount.
+- `frontend/src/pages/DashboardPage.jsx` — new `DashboardTabs` component with 3 lanes, Waterfall + FeeInsights removed, layout compacted.
+- `frontend/src/components/CashForecastCard.jsx` — `forceDemoMode` prop, self-heal logic, cleaner banners.
+- `frontend/src/pages/UploadPage.jsx` — "Run with LLM" premium demo CTA + `runDemo` accepts useLlm.
+
+### Why this wins
+- **No more scroll fatigue** — 3 tabs, ~4 cards per tab. Every card visible without scroll on a 1080p screen.
+- **No more empty forecast** — the chart shows real data from the demo dataset without the operator clicking anything.
+- **No more $0.0000 embarrassment** — one obvious button runs the LLM demo, everything lights up.
+- **No more "wait I lost my run"** — reload proof, browser-restart proof, backend-restart tolerant.
+
+---
+
+## Bulletproofing pass · Ask hardening, empty-state fixes, drawer polish (2026-08-29)
+
+### 1. Ask endpoint hardened — never 500s, always renders something
+**Symptom:** UI showed *"Request failed — The agent could not answer that question."* — the
+old blanket 500. Frontend fell into its catch and rendered "0ms total" with a red stamp.
+
+**Fix (backend):**
+- `/ask` now catches every internal exception and returns HTTP 200 with a real, actionable
+  answer + a trace with a `refused` step naming the exact `ExceptionClass: message`. Server
+  logs the traceback for post-mortem.
+- 404 on stale run_id returns a clearer message: *"Run '<id>' not found. Reconcile a batch
+  first, then ask about it."*
+- `_phrase()` in `qa.py` now catches every `Exception` (not just `LLMError`) — an LLM
+  timeout / quota / bad JSON degrades to the deterministic base sentence, never crashes.
+
+**Verified live:** every request returns 200 with a rendered answer, even on stale run_id
+or LLM outage. Frontend's error banner no longer fires.
+
+### 2. Forward cash forecast — bulletproof empty states
+**Symptom:** Chart bars all empty on the demo TEST data (dated July 2025) because every
+in-flight settlement is past-due relative to today (Aug 2026). Looked broken.
+
+**Fix:** `CashForecastCard.jsx`
+- **Past-due chip is now a click-to-expand button** — click it to see the list of payment
+  IDs that are overdue. Escalate-now cadence, one-tap access.
+- **Empty-horizon banner** appears when nothing lands in the window: names the count,
+  suggests widening the horizon, and offers a *"demo mode"* toggle that re-projects with
+  `as_of` shifted 400 days back so old test data shows meaningful bars.
+- All three summary chips (In-horizon / Past-due / Beyond) keep their real numbers — the
+  chart body just gains an honest "why this looks empty" explainer.
+
+**Verified live:** with `as_of=2025-07-04`, the same run shows landings on 2025-07-08 and
+2025-07-11 in the horizon — real data, correct projection.
+
+### 3. Exceptions drawer — Decisions & Explain tabs bulletproofed
+- **Explain tab** — empty-state message when `item.explanation` is missing so the tab
+  never renders a blank white card.
+- **Decisions tab** already handled the "no strategy attempts" case with a friendly
+  "Repair Agent didn't run on this record" banner.
+
+### 4. Horizontal scrollbar on Exceptions table + drawer content
+**Symptom:** Exceptions table has `min-w-[820px]`. When the 540px drawer opens on a
+1200-1400px viewport, the table needs to scroll horizontally, but the scrollbar was
+invisible (Chrome default overlay style disappears when idle).
+
+**Fix:** new `.rm-scroll` utility class in `ExceptionsPage.jsx`'s style block — slim
+brand-red thumb (`#b5452f`) on a sage track (`#eef2e8`), 8px, always visible.
+Applied to the table scroll container and the drawer body. Also usable elsewhere.
+
+### 5. Footer strip — honest, not confusing
+**Symptom:** *"AI cost $0.0000 / Model not used / AI explanations 0 verified / 0 calls"* —
+correct, but reads like something is broken.
+
+**Fix:** each metric now shows a subtitle that says WHY the number is what it is:
+- AI cost → *"reconcile ran without LLM (fast path)"* or *"verified against hallucination guard"*
+- Model → *"on-demand only"* (invoke via Explain-with-AI in the drawer) or *"gpt-4o-mini"*
+- AI explanations → *"hallucination verifier rejected any ungrounded rupee"*
+Also relabeled "AI cost (this run)" → "AI cost at reconcile" so the operator knows these
+are batch-time numbers, not lifetime.
+
+### Files touched
+- `backend/api/main.py` — `/ask` returns 200 on internal error, better 404 message.
+- `backend/agent/qa.py` — `_phrase()` catches every Exception.
+- `frontend/src/components/CashForecastCard.jsx` — expandable past-due chip, empty-state
+  banner, demo-mode as_of toggle.
+- `frontend/src/pages/ExceptionsPage.jsx` — Explain tab empty-state, `.rm-scroll` class,
+  drawer body + table scroll uses it.
+- `frontend/src/pages/DashboardPage.jsx` — FooterStrip subtitles + honest labels.
+
+---
+
 ## Deploy fix + smart column detection (2026-08-29)
 
 ### 1. Railway crash — `ModuleNotFoundError: No module named 'requests'`

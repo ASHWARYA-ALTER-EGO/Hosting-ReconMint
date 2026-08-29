@@ -443,17 +443,21 @@ PHRASE_SYSTEM = (
 
 
 def _phrase(base_answer: str, figures: list[dict]) -> tuple[str, bool, str]:
-    """Return (answer, verified, source). Falls back to the deterministic base if unverified."""
-    allowed = {round(abs(float(f["value"])), 2) for f in figures if f["value"] != 0}
-    facts = "; ".join(f"{f['label']} = {f['value']}" for f in figures)
+    """Return (answer, verified, source). Falls back to the deterministic base if unverified.
+
+    Any exception from the LLM path (timeout, quota, network, JSON parse) degrades to the
+    deterministic sentence — the agent never fails just because the phrasing pass hiccuped.
+    """
     try:
+        allowed = {round(abs(float(f["value"])), 2) for f in figures if f["value"] != 0}
+        facts = "; ".join(f"{f['label']} = {f['value']}" for f in figures)
         resp = llm.chat(PHRASE_SYSTEM, f"Facts: {facts}\nDraft: {base_answer}",
                         json_mode=False, max_tokens=120)
         text = resp.text.strip()
         if verify(text, allowed).ok:
             return text, True, "llm_verified"
         return base_answer, True, "llm_rejected_fallback"  # base is deterministic, already grounded
-    except llm.LLMError:
+    except Exception:  # noqa: BLE001 - any LLM / network / parse issue
         return base_answer, True, "deterministic"
 
 
