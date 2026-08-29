@@ -9,6 +9,7 @@ import TaxExposureCard from "../components/TaxExposureCard.jsx";
 import QualitySignalsCard from "../components/QualitySignalsCard.jsx";
 import RazorpayVerificationCard from "../components/RazorpayVerificationCard.jsx";
 import RazorpayVerificationBar from "../components/RazorpayVerificationBar.jsx";
+import RazorpayLiveCard from "../components/RazorpayLiveCard.jsx";
 import RepairAgentCard from "../components/RepairAgentCard.jsx";
 import FeeSlabCard from "../components/FeeSlabCard.jsx";
 import BenchmarkChip from "../components/BenchmarkChip.jsx";
@@ -822,9 +823,9 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
           <MetricCard title="Exceptions" subtitle="(Needs review)" value={`${m.exceptions_total}`} numeric={m.exceptions_total} footnote={`${exceptionsPct}% of records`} tone="negative" delay={160} />
         </section>
 
-        {/* Razorpay API check bar, visible on every tab so the sponsor-product grounding
-            is always in view (not buried on the Audit tab). */}
-        <RazorpayVerificationBar runId={run.runId} />
+        {/* Bold Razorpay live-connection card, visible on every tab so the sponsor-product
+            integration is unmissable. Click to expand and see the real records fetched. */}
+        <RazorpayLiveCard runId={run.runId} />
 
         {/* Tabbed body, kills scroll fatigue by grouping cards by intent. */}
         <DashboardTabs

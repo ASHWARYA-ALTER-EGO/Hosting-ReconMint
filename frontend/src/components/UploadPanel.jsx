@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Folder from "./Folder.jsx";
 import AgentTrace from "./AgentTrace.jsx";
+import AgentCockpit from "./AgentCockpit.jsx";
 
 const SLOTS = [
   { id: "orders", name: "Orders", icon: "fa-solid fa-cart-shopping", color: "blue", key: "order" },
@@ -342,7 +343,12 @@ export default function UploadPanel({
                 </button>
               )}
             </div>
-            <AgentTrace trace={displaySteps} label="Multi-agent reconciliation log · 7 sub-agents, each making real decisions" />
+            <AgentCockpit
+              steps={displaySteps}
+              totalMs={(runResult.trace || []).reduce((s, x) => s + (x.ms || 0), 0)}
+              decisions={runResult.decisions_logged || 0}
+              done={done}
+            />
             {done && (
               <div className="mt-5 flex items-center gap-2 text-xs font-medium text-teal-800 bg-teal-50/70 border border-teal-100 rounded-lg px-3 py-2 w-fit animate-[upnlFade_0.4s_ease-out]">
                 <i className="fa-solid fa-shield-halved text-teal-600"></i>

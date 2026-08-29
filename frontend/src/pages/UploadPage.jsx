@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import Folder from "../components/Folder.jsx";
 import AgentTrace from "../components/AgentTrace.jsx";
+import AgentCockpit from "../components/AgentCockpit.jsx";
+import DecisionLedger from "../components/DecisionLedger.jsx";
 
 // ─── Font Import ──────────────────────────────────────────────
 const FONT_IMPORT_URL =
@@ -738,14 +740,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
             {busy === "demo-llm" || busy === "demo" ? "Running full demo (AI + verifier)…" : "Try sample data (demo + AI)"}
           </button>
         </div>
-        {/* One-line disclosure so operators know what the demo button does */}
-        <div className="max-w-2xl mx-auto -mt-4 mb-6 text-center rm-body text-[11px]"
-          style={{ color: "var(--rm-ink-soft)" }}>
-          Sample-data demo runs the full pipeline <b>with</b> the GPT-4o-mini explainer on every
-          exception, populates the AI cost / model / explanations strip with real numbers
-          (~$0.02, ~30s). Every LLM sentence is magnitude-checked by the hallucination verifier.
-        </div>
-        <div className="text-center mb-8">
+        <div className="text-center mt-4 mb-8">
           <a href={SAMPLE_DATASET_URL} target="_blank" rel="noopener noreferrer" className="rm-mono text-xs font-medium underline underline-offset-2" style={{ color: "var(--rm-ink-soft)" }}>
             or download the sample files from Google Drive to test locally →
           </a>
@@ -841,9 +836,24 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
                 </p>
               )}
 
+              {/* Mission-control cockpit: 3x3 grid of agent stations + 2 status cells.
+                  Kills the "vertical list = pipeline" perception on first look. */}
               <div className="rm-trace-inner p-6">
-                <AgentTrace trace={displaySteps} label="Multi-agent reconciliation log · 7 sub-agents, each making real decisions" getExplainer={explainerFor} />
+                <AgentCockpit
+                  steps={displaySteps}
+                  totalMs={(runResult.trace || []).reduce((s, x) => s + (x.ms || 0), 0)}
+                  decisions={runResult.decisions_logged || 0}
+                  done={done}
+                />
               </div>
+
+              {/* Decision Ledger - real per-record decisions the agents made, pulled from
+                  the SQLite audit table. Reads as an agent log, not a build log. */}
+              {done && runResult.run_id && (
+                <div className="mt-5">
+                  <DecisionLedger runId={runResult.run_id} />
+                </div>
+              )}
 
               {done && (
                 <div className="mt-5 flex items-start gap-2.5 text-xs font-medium rounded-lg px-4 py-3 w-fit max-w-full animate-[fadeSlideIn_0.4s_ease-out]" style={{ background: "var(--rm-moss-wash)", border: "1px solid var(--rm-moss)", color: "var(--rm-ink)" }}>

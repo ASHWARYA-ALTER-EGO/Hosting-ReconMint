@@ -53,43 +53,36 @@ export default function CashForecastCard({ runId, forceDemoMode = false }) {
   const [horizon, setHorizon] = useState(7);
   const [selectedDay, setSelectedDay] = useState(null);
   const [showPastDue, setShowPastDue] = useState(false);
-  const [asOfOverride, setAsOfOverride] = useState(null);
-  // If the caller flags demo mode (e.g, demo run) or if a prior fetch showed the
-  // horizon empty with past-due settlements pending, auto-enable the historical
-  // as_of override so the chart isn't a wall of empty bars.
-  const [autoDemo, setAutoDemo] = useState(forceDemoMode);
 
   useEffect(() => {
     if (!runId) return;
     let cancelled = false;
     setData(null); setErr(null); setSelectedDay(null); setShowPastDue(false);
-    // Compute the effective as_of. Priority: user override > auto-demo (400d ago) > backend "today".
-    const todayIso = new Date().toISOString().slice(0, 10);
-    const shifted = new Date(new Date(todayIso).getTime() - 400 * 86400000)
-      .toISOString().slice(0, 10);
-    const effectiveAsOf = asOfOverride || (autoDemo ? shifted : null);
-    api.getCashForecast(runId, { horizon, asOf: effectiveAsOf })
+    // Backend auto-picks as_of INSIDE this batch's date window, so we just ask
+    // for the horizon and let the projection land somewhere useful.
+    api.getCashForecast(runId, { horizon })
       .then((d) => {
         if (cancelled) return;
         setData(d);
-        // Self-heal 1: if the horizon is empty AND past-due has records, flip auto-demo
-        // on so the operator sees a meaningful chart without clicking anything.
-        if (!autoDemo && !asOfOverride
-            && d.totals.in_horizon_paise === 0 && d.past_due.count > 0) {
-          setAutoDemo(true);
-          return;
-        }
-        // Self-heal 2: if nothing lands in horizon but many settlements land beyond,
+        // Self-heal: if nothing lands in the current horizon but records exist beyond,
         // auto-widen to 30 days so the chart isn't a wall of empty bars.
         if (d.totals.in_horizon_paise === 0
-            && d.beyond_horizon.count > 3
+            && d.beyond_horizon.count > 0
             && horizon < 30) {
           setHorizon(30);
         }
       })
       .catch((e) => { if (!cancelled) setErr(String(e.message || e)); });
     return () => { cancelled = true; };
-  }, [runId, horizon, asOfOverride, autoDemo]);
+  }, [runId, horizon]);
+
+  // No-op stubs left in place so any legacy JSX that references them still renders.
+  const autoDemo = false;
+  const asOfOverride = null;
+  // eslint-disable-next-line no-unused-vars
+  const setAutoDemo = () => {};
+  // eslint-disable-next-line no-unused-vars
+  const setAsOfOverride = () => {};
 
   if (err) {
     return (
@@ -130,13 +123,13 @@ export default function CashForecastCard({ runId, forceDemoMode = false }) {
           </div>
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>
-              Will I make payroll?
+              Cash timeline
             </div>
             <h2 className="text-[15px] font-semibold tracking-tight" style={{ color: C.ink }}>
-              Cash landing in the next {horizon} days (T+2 projection)
+              What landed in the last {horizon} days, what will land in the next {horizon}
             </h2>
             <div className="text-[10.5px] mt-0.5" style={{ color: C.softText }}>
-              Every in-flight settlement projected forward. Past-due money highlighted so ops can chase it today.
+              Grey = actual cleared landings · Green = projected (record_date + T+{t_plus} business days) · Red = today
             </div>
           </div>
         </div>
@@ -158,10 +151,15 @@ export default function CashForecastCard({ runId, forceDemoMode = false }) {
         </div>
       </div>
 
-      {/* summary row */}
-      <div className="mx-6 mb-4 grid grid-cols-3 gap-3">
+      {/* summary row - 4 chips now: Landed (past) + In horizon (future) + Past-due + Beyond */}
+      <div className="mx-6 mb-4 grid grid-cols-4 gap-3">
+        <div className="p-3 rounded-lg border" style={{ borderColor: C.border, background: "rgba(31,42,26,0.03)" }}>
+          <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.softText }}>Landed (past {horizon}d)</div>
+          <div className="text-lg font-semibold tabular-nums" style={{ color: C.ink }}>{inrShort(totals.landed_paise || 0)}</div>
+          <div className="text-[10px]" style={{ color: C.softText }}>{totals.landed_count || 0} settlement{totals.landed_count === 1 ? "" : "s"}</div>
+        </div>
         <div className="p-3 rounded-lg border" style={{ borderColor: C.border, background: "rgba(75,123,78,0.06)" }}>
-          <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.moss }}>In horizon</div>
+          <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.moss }}>Projected (next {horizon}d)</div>
           <div className="text-lg font-semibold tabular-nums" style={{ color: C.ink }}>{inrShort(totals.in_horizon_paise)}</div>
           <div className="text-[10px]" style={{ color: C.softText }}>{totals.in_horizon_count} settlement{totals.in_horizon_count === 1 ? "" : "s"}</div>
         </div>
@@ -197,18 +195,18 @@ export default function CashForecastCard({ runId, forceDemoMode = false }) {
         </div>
       </div>
 
-      {/* Truly-empty state: every settlement already landed OR is unclaimed. Show an honest
-          "nothing to forecast" so the chart doesn't look broken. */}
-      {totals.in_horizon_paise === 0 && past_due.count === 0 && beyond_horizon.count === 0 && (
+      {/* Truly-empty state: no past landings AND no future projections. Rare in practice
+          because the timeline now shows both directions. */}
+      {totals.in_horizon_paise === 0 && (totals.landed_paise || 0) === 0
+          && past_due.count === 0 && beyond_horizon.count === 0 && (
         <div className="mx-6 mb-4 p-4 rounded-lg text-[12px] flex items-start gap-3"
           style={{ background: "rgba(75,123,78,0.06)", border: `1px solid ${C.moss}`, color: C.softText }}>
           <i className="fa-solid fa-check-double text-[14px] mt-0.5" style={{ color: C.moss }} />
           <div>
-            <div className="font-semibold" style={{ color: C.ink }}>Nothing in flight to forecast</div>
+            <div className="font-semibold" style={{ color: C.ink }}>Nothing to plot for this window</div>
             <div className="mt-0.5">
-              Every settlement in this batch has already cleared, been chargebacked, or landed as
-              an unattributable ghost credit. See the Cash Position card above for the full breakdown.
-              For a batch with in-flight settlements to project, try the <span className="font-semibold">relatively clean</span> TEST folder.
+              This batch has no settlements landing or projected within the selected horizon.
+              Widen the horizon, or try another batch with more activity.
             </div>
           </div>
         </div>
@@ -260,9 +258,11 @@ export default function CashForecastCard({ runId, forceDemoMode = false }) {
                   className="w-full rounded-t transition-all duration-300"
                   style={{
                     height: `${Math.max(h, hasCash ? 3 : 0)}%`,
-                    background: isSelected ? C.ink : (isToday ? C.rust : (hasCash ? C.moss : C.border)),
+                    background: isSelected ? C.ink
+                      : (isToday ? C.rust
+                      : (hasCash ? (d.kind === "landed" ? C.softText : C.moss) : C.border)),
                     minHeight: hasCash ? 3 : 0,
-                    opacity: hasCash ? 1 : 0.35,
+                    opacity: hasCash ? (d.kind === "landed" ? 0.75 : 1) : 0.35,
                   }}
                 />
               </button>
@@ -308,10 +308,9 @@ export default function CashForecastCard({ runId, forceDemoMode = false }) {
           </div>
         ) : (
           <div className="text-[10.5px] flex items-center gap-2 flex-wrap" style={{ color: C.softText }}>
-            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: C.moss }} /> expected inflow</span>
+            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: C.softText, opacity: 0.75 }} /> landed (actual)</span>
             <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: C.rust }} /> today</span>
-            <span>·</span>
-            <span>projection: <span className="font-semibold">record_date + T+{t_plus} business days</span></span>
+            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: C.moss }} /> projected</span>
             <span>·</span>
             <span>click any bar for the payment IDs</span>
           </div>

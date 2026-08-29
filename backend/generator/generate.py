@@ -63,8 +63,8 @@ def make_dataset(n: int = 520):
 
     # weighted defect mix: mostly clean/fee, a realistic tail of exceptions
     plan = (
-        ["clean"] * 180
-        + ["fee_explained"] * 240
+        ["clean"] * 170
+        + ["fee_explained"] * 220
         + ["partial_refund"] * 40
         + ["chargeback"] * 12
         + ["timing_t2"] * 30
@@ -73,6 +73,9 @@ def make_dataset(n: int = 520):
         + ["ghost_bank"] * 4
         + ["fee_anomaly"] * 10
         + ["rounding_noise"] * 5
+        # NEW: settlements that Razorpay recorded but the bank has not yet credited.
+        # These populate the in_flight bucket + Forward Cash Forecast card.
+        + ["missing_in_bank"] * 30
     )
     if len(plan) < n:
         plan = plan * (n // len(plan) + 1)   # cycle the weighted template up to n (for benchmarks)
@@ -153,7 +156,7 @@ def make_dataset(n: int = 520):
         if category == "transposed_utr":
             bank_utr = _transpose_two_digits(utr)
 
-        if net > 0:  # a fully charged-back payment produces no positive credit
+        if net > 0 and category != "missing_in_bank":  # 'missing_in_bank' skips the bank row entirely -> stays in_flight
             bank.append({
                 "value_date": bank_date.date().isoformat(),
                 "utr": bank_utr,

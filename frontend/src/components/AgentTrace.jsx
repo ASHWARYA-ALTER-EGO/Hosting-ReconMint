@@ -81,7 +81,11 @@ export default function AgentTrace({ trace, label = "Agent trace", figuresOf, ge
                   )}
 
                   {s.ms != null && (
-                    <span className="rm-mono text-[10px] ml-auto flex-shrink-0" style={{ color: "var(--rm-ink-soft)" }}>
+                    <span className="rm-mono text-[9.5px] ml-auto flex-shrink-0 flex items-center gap-2"
+                      style={{ color: "var(--rm-ink-soft)" }}>
+                      <span style={{ padding: "1px 6px", borderRadius: 3, background: "rgba(75,123,78,0.08)",
+                        border: "1px solid rgba(75,123,78,0.25)", color: "var(--rm-moss)", fontWeight: 700,
+                        textTransform: "uppercase", letterSpacing: "0.08em" }}>Verdict</span>
                       {s.ms}ms
                     </span>
                   )}

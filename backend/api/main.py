@@ -526,14 +526,34 @@ def run_cash_forecast(run_id: str, horizon_days: int = 7, t_plus: int = 2,
         raise InputValidationError("t_plus must be between 0 and 10.")
 
     from datetime import date, timedelta
-    today = date.fromisoformat(as_of) if as_of else date.today()
+    rows = audit.get_decisions(run_id)
+
+    # If the caller didn't pin as_of, pick a date INSIDE this batch's window so the
+    # chart is meaningful. Uses min(settled_date) + t_plus so today's projection lands
+    # inside the batch. Falls back to real today only if there are no dates at all.
+    if as_of:
+        today = date.fromisoformat(as_of)
+    else:
+        settled_dates = [r.get("record_date") for r in rows
+                         if r.get("record_type") == "settlement" and r.get("record_date")]
+        if settled_dates:
+            try:
+                first = min(date.fromisoformat(d) for d in settled_dates)
+                # Land as_of a couple of days after the earliest settlement so the horizon
+                # covers real T+ landings from the batch.
+                today = first + timedelta(days=1)
+                # But never claim "today" is in the future beyond real today.
+                today = min(today, date.today())
+            except (ValueError, TypeError):
+                today = date.today()
+        else:
+            today = date.today()
 
     # In-flight = settlements Razorpay recorded but bank has not yet credited.
     IN_FLIGHT_REASONS = {"no_bank_row_with_utr", "bank_date_mismatch",
                          "bank_utr_found_amount_differs"}
     IN_FLIGHT_RESOLUTIONS = {"still_unmatched"}
 
-    rows = audit.get_decisions(run_id)
     horizon_end = today + timedelta(days=horizon_days)
 
     days_map: dict[str, dict] = {}
@@ -541,14 +561,13 @@ def run_cash_forecast(run_id: str, horizon_days: int = 7, t_plus: int = 2,
     beyond_amount = 0
     beyond_count = 0
 
+    # ---------- 1. FORWARD projection: in-flight settlements land at record_date + T+ ----------
     for r in rows:
         rec_type = r.get("record_type") or ""
         if rec_type != "settlement":
             continue
         resolution = r.get("resolution") or ""
         reason = r.get("reason") or ""
-        # Match the cash-position definition of in_flight exactly: exclude chargebacks
-        # (those live in at_risk) and duplicates (quarantined, don't affect cash).
         if reason == "chargeback_no_credit" or "chargeback" in reason:
             continue
         if resolution == "duplicate_quarantined":
@@ -573,7 +592,7 @@ def run_cash_forecast(run_id: str, horizon_days: int = 7, t_plus: int = 2,
         elif projected >= today and projected <= horizon_end:
             key = projected_iso
             bkt = days_map.setdefault(key, {"date": key, "amount_paise": 0,
-                                            "count": 0, "ids": []})
+                                            "count": 0, "ids": [], "kind": "projected"})
             bkt["amount_paise"] += amt
             bkt["count"] += 1
             if len(bkt["ids"]) < 15:
@@ -582,12 +601,57 @@ def run_cash_forecast(run_id: str, horizon_days: int = 7, t_plus: int = 2,
             beyond_amount += amt
             beyond_count += 1
 
-    # Emit a bar for every day in the window (empty days included, so the chart is dense)
+    # ---------- 2. HISTORICAL landings: cleared settlements in the past horizon window ----------
+    # If a batch is fully reconciled (nothing in-flight), the chart would otherwise be empty.
+    # A Finance Controller cares about recent cash pattern too - so we also show what DID land.
+    RECON = {"reconciled_clean", "reconciled_fee"}
+    horizon_start = today - timedelta(days=horizon_days)
+    landed_amount = 0
+    landed_count = 0
+    for r in rows:
+        if r.get("record_type") != "settlement":
+            continue
+        if r.get("resolution") not in RECON:
+            continue
+        rec_date = r.get("record_date")
+        if not rec_date:
+            continue
+        try:
+            landed = date.fromisoformat(rec_date)
+        except (ValueError, TypeError):
+            continue
+        # Only rows that landed within the retrospective window (today - horizon .. today).
+        if landed < horizon_start or landed > today:
+            continue
+        amt = abs(int(r.get("amount_paise") or 0))
+        ref = r.get("record_ref") or ""
+        key = rec_date
+        bkt = days_map.setdefault(key, {"date": key, "amount_paise": 0,
+                                        "count": 0, "ids": [], "kind": "landed"})
+        bkt["amount_paise"] += amt
+        bkt["count"] += 1
+        # If this day was pre-populated by a projected landing, mark as mixed.
+        if bkt.get("kind") == "projected":
+            bkt["kind"] = "mixed"
+        elif "kind" not in bkt:
+            bkt["kind"] = "landed"
+        if len(bkt["ids"]) < 15:
+            bkt["ids"].append(ref)
+        landed_amount += amt
+        landed_count += 1
+
+    # Emit a bar for every day in the retrospective + prospective window so the chart
+    # always has something to show. Retro = today - horizon_days .. today. Future = today .. today + horizon_days.
     days = []
-    for i in range(horizon_days + 1):
+    for i in range(-horizon_days, horizon_days + 1):
         iso = (today + timedelta(days=i)).isoformat()
-        days.append(days_map.get(iso, {"date": iso, "amount_paise": 0,
-                                       "count": 0, "ids": []}))
+        base = {"date": iso, "amount_paise": 0, "count": 0, "ids": [],
+                "kind": "landed" if i < 0 else ("today" if i == 0 else "projected")}
+        days.append(days_map.get(iso, base))
+
+    # Split totals so the frontend can render two colours: what actually landed vs projected
+    forward = [d for d in days if d["date"] > today.isoformat()]
+    backward = [d for d in days if d["date"] < today.isoformat()]
 
     return {
         "run_id": run_id,
@@ -597,10 +661,13 @@ def run_cash_forecast(run_id: str, horizon_days: int = 7, t_plus: int = 2,
         "currency": "INR",
         "past_due": past_due,
         "beyond_horizon": {"amount_paise": beyond_amount, "count": beyond_count},
+        "landed_window": {"amount_paise": landed_amount, "count": landed_count},
         "days": days,
         "totals": {
-            "in_horizon_paise": sum(d["amount_paise"] for d in days),
-            "in_horizon_count": sum(d["count"] for d in days),
+            "in_horizon_paise": sum(d["amount_paise"] for d in forward),
+            "in_horizon_count": sum(d["count"] for d in forward),
+            "landed_paise": sum(d["amount_paise"] for d in backward),
+            "landed_count": sum(d["count"] for d in backward),
             "past_due_paise": past_due["amount_paise"],
             "beyond_horizon_paise": beyond_amount,
         },
