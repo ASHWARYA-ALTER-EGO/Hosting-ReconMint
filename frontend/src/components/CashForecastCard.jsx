@@ -72,11 +72,19 @@ export default function CashForecastCard({ runId, forceDemoMode = false }) {
       .then((d) => {
         if (cancelled) return;
         setData(d);
-        // Self-heal: if the horizon is empty AND past-due has records, flip auto-demo on
-        // once so the operator sees a meaningful chart without clicking anything.
+        // Self-heal 1: if the horizon is empty AND past-due has records, flip auto-demo
+        // on so the operator sees a meaningful chart without clicking anything.
         if (!autoDemo && !asOfOverride
             && d.totals.in_horizon_paise === 0 && d.past_due.count > 0) {
           setAutoDemo(true);
+          return;
+        }
+        // Self-heal 2: if nothing lands in horizon but many settlements land beyond,
+        // auto-widen to 30 days so the chart isn't a wall of empty bars.
+        if (d.totals.in_horizon_paise === 0
+            && d.beyond_horizon.count > 3
+            && horizon < 30) {
+          setHorizon(30);
         }
       })
       .catch((e) => { if (!cancelled) setErr(String(e.message || e)); });
@@ -121,11 +129,15 @@ export default function CashForecastCard({ runId, forceDemoMode = false }) {
             <i className="fa-solid fa-chart-column text-xs"></i>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>Forward cash forecast
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>
+              Will I make payroll?
             </div>
             <h2 className="text-[15px] font-semibold tracking-tight" style={{ color: C.ink }}>
-              Expected landings, next {horizon} days
+              Cash landing in the next {horizon} days (T+2 projection)
             </h2>
+            <div className="text-[10.5px] mt-0.5" style={{ color: C.softText }}>
+              Every in-flight settlement projected forward. Past-due money highlighted so ops can chase it today.
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1.5">
@@ -184,6 +196,23 @@ export default function CashForecastCard({ runId, forceDemoMode = false }) {
           <div className="text-[10px]" style={{ color: C.softText }}>{beyond_horizon.count} land after +{horizon}d</div>
         </div>
       </div>
+
+      {/* Truly-empty state: every settlement already landed OR is unclaimed. Show an honest
+          "nothing to forecast" so the chart doesn't look broken. */}
+      {totals.in_horizon_paise === 0 && past_due.count === 0 && beyond_horizon.count === 0 && (
+        <div className="mx-6 mb-4 p-4 rounded-lg text-[12px] flex items-start gap-3"
+          style={{ background: "rgba(75,123,78,0.06)", border: `1px solid ${C.moss}`, color: C.softText }}>
+          <i className="fa-solid fa-check-double text-[14px] mt-0.5" style={{ color: C.moss }} />
+          <div>
+            <div className="font-semibold" style={{ color: C.ink }}>Nothing in flight to forecast</div>
+            <div className="mt-0.5">
+              Every settlement in this batch has already cleared, been chargebacked, or landed as
+              an unattributable ghost credit. See the Cash Position card above for the full breakdown.
+              For a batch with in-flight settlements to project, try the <span className="font-semibold">relatively clean</span> TEST folder.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* past-due drilldown when the chip is expanded */}
       {showPastDue && past_due.count > 0 && (

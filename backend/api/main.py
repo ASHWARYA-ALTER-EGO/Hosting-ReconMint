@@ -66,6 +66,27 @@ app.add_middleware(
 audit = AuditLog()
 
 
+def _ensure_seed_data() -> None:
+    """If the demo CSVs aren't present (fresh volume mount, first boot on Railway,
+    someone wiped data/generated), generate them once. Idempotent, cheap (~2s)."""
+    needed = ("orders.csv", "settlement.csv", "bank.csv")
+    have_all = all(os.path.exists(os.path.join(DEFAULT_DATA_DIR, f)) for f in needed)
+    if have_all:
+        return
+    try:
+        os.makedirs(DEFAULT_DATA_DIR, exist_ok=True)
+        from backend.generator.generate import write_dataset
+        print(f"[startup] seed data missing at {DEFAULT_DATA_DIR}, generating now...")
+        write_dataset(DEFAULT_DATA_DIR, n=100)
+        print(f"[startup] seed data written to {DEFAULT_DATA_DIR}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[startup] seed data generation FAILED: {exc}")
+
+
+# Fire once at import so Railway (fresh volume mount) always has demo data ready.
+_ensure_seed_data()
+
+
 # --------------------------------------------------------------------------- helpers
 def _severity_counts(run_id: str) -> SeverityCounts:
     rows = audit.get_exceptions(run_id)
@@ -221,10 +242,11 @@ def reconcile_upload(
     orders: UploadFile = File(...),
     settlement: UploadFile = File(...),
     bank: UploadFile = File(...),
-    use_llm: bool = Form(False),
+    use_llm: str = Form("false"),
 ) -> ReconcileResponse:
+    use_llm_bool = str(use_llm).strip().lower() in ("true", "1", "yes", "on")
     files = {"orders": orders, "settlement": settlement, "bank": bank}
-    summary = _save_uploads_and_reconcile(files, use_llm=use_llm)
+    summary = _save_uploads_and_reconcile(files, use_llm=use_llm_bool)
     run_id = summary["run_id"]
     return ReconcileResponse(
         run_id=run_id,
@@ -236,12 +258,21 @@ def reconcile_upload(
 
 
 @app.post("/reconcile/demo", response_model=ReconcileResponse)
-def reconcile_demo(use_llm: bool = Form(False), max_llm_calls: int = Form(0)) -> ReconcileResponse:
+def reconcile_demo(use_llm: str = Form("false"), max_llm_calls: int = Form(0)) -> ReconcileResponse:
+    # Coerce liberally: accept "true"/"false", "1"/"0", "yes"/"no", real bools. Some deploys
+    # were 422'ing with "Input should be a valid boolean" on Pydantic v2's stricter Form parse.
+    use_llm_bool = str(use_llm).strip().lower() in ("true", "1", "yes", "on")
+    return _do_reconcile_demo(use_llm_bool, max_llm_calls)
+
+
+def _do_reconcile_demo(use_llm: bool, max_llm_calls: int) -> ReconcileResponse:
     """Run on the built-in synthetic dataset - convenient for the frontend and the demo video.
 
     Defaults to no bulk LLM so the demo is instant; explanations are generated on demand per
     exception via POST /decisions/{id}/explain. Pass use_llm=true to pre-generate them.
     """
+    # Re-check seed data right before running so a wiped volume self-heals on demand.
+    _ensure_seed_data()
     summary = reconcile(persist=True, use_llm=use_llm,
                         max_llm_calls=(max_llm_calls or None))
     run_id = summary["run_id"]

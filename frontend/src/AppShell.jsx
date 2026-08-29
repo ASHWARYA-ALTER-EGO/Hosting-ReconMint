@@ -109,10 +109,19 @@ export default function AppShell() {
           setEvalData({ breakdown });
         }
         showToast("Restored your last reconciliation run.");
-      } catch {
-        // Backend doesn't have this run anymore (restart / expired). Silent clear.
+      } catch (e) {
+        // Distinguish "backend confirmed the run is gone" (404) from "backend unreachable"
+        // (network / CORS / sleep). Only clear on real 404. On network error, keep the
+        // stored run so the operator's data survives a bad wifi moment.
         if (cancelled) return;
-        setRun(null);
+        const msg = String(e?.message || "");
+        if (msg.includes("not found") || msg.includes("404")) {
+          setRun(null);
+        } else {
+          // Keep the run object; the operator can still browse Dashboard/Exceptions/Ask
+          // once the backend comes back. Fetches on those pages will retry on their own.
+          showToast?.("Backend unreachable, keeping your last run in memory.", "warn");
+        }
       }
     })();
     return () => { cancelled = true; };

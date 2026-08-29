@@ -788,7 +788,11 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
             )}
             <span>Run ID: {run.runId}</span>
             <span>•</span>
-            <span>Reconciled in <b style={{ color: C.ink }}>{m.elapsed_seconds}s</b></span>
+            <span>Reconciled in <b style={{ color: C.ink }}>{
+              m.elapsed_seconds >= 0.1 ? `${m.elapsed_seconds}s`
+              : m.elapsed_seconds > 0 ? `${Math.round(m.elapsed_seconds * 1000)}ms`
+              : "under 1ms"
+            }</b> · throughput <b style={{ color: C.ink }}>{Math.round(m.throughput_rps).toLocaleString("en-IN")} rec/s</b></span>
             <span>•</span>
             <span>{m.settlement_active} records · {m.exceptions_total} exceptions</span>
           </div>
@@ -818,6 +822,10 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
           <MetricCard title="Exceptions" subtitle="(Needs review)" value={`${m.exceptions_total}`} numeric={m.exceptions_total} footnote={`${exceptionsPct}% of records`} tone="negative" delay={160} />
         </section>
 
+        {/* Razorpay API check bar, visible on every tab so the sponsor-product grounding
+            is always in view (not buried on the Audit tab). */}
+        <RazorpayVerificationBar runId={run.runId} />
+
         {/* Tabbed body, kills scroll fatigue by grouping cards by intent. */}
         <DashboardTabs
           run={run}
@@ -844,7 +852,7 @@ function DashboardTabs({ run, m, evalData, segments, bdTotal, onFirstInteract })
   const TABS = [
     { id: "cash",     label: "Cash",           icon: "fa-scale-balanced",     hint: "position now · forecast next 7d · tax exposure · slab advice" },
     { id: "recon",    label: "Reconciliation", icon: "fa-diagram-project",    hint: "match breakdown · Repair Agent · source files" },
-    { id: "audit",    label: "Audit",          icon: "fa-shield-halved",      hint: "sponsor API handshake · accuracy · quality signals · AI cost" },
+    { id: "audit",    label: "Audit",          icon: "fa-shield-halved",      hint: "live Razorpay API check · accuracy · quality signals · AI cost" },
   ];
 
   return (
@@ -910,10 +918,9 @@ function DashboardTabs({ run, m, evalData, segments, bdTotal, onFirstInteract })
         </div>
       )}
 
-      {/* Audit lane, proof and trust. Slimmed: sponsor API is a dismissible bar, not a card. */}
+      {/* Audit lane, proof and trust. Razorpay bar lives above the tabs so it's on every tab. */}
       {tab === "audit" && (
         <div className="space-y-6">
-          <RazorpayVerificationBar runId={run.runId} />
           {evalData?.accuracy && (
             <section className="dash-section">
               <AccuracyCard acc={evalData.accuracy} onFirstInteract={onFirstInteract} />

@@ -14,25 +14,32 @@ const C = {
   border: "rgba(31,42,26,0.14)",
 };
 
-const DISMISS_KEY = "reconmint_rzp_bar_dismissed";
-
 export default function RazorpayVerificationBar({ runId }) {
   const [data, setData] = useState(null);
-  const [dismissed, setDismissed] = useState(() => {
-    try { return localStorage.getItem(DISMISS_KEY) === "1"; } catch { return false; }
-  });
 
   useEffect(() => {
-    if (!runId || dismissed) return;
+    if (!runId) return;
     api.getRazorpayVerification(runId).then(setData).catch(() => setData(null));
-  }, [runId, dismissed]);
+  }, [runId]);
 
-  const hide = () => {
-    setDismissed(true);
-    try { localStorage.setItem(DISMISS_KEY, "1"); } catch { /* noop */ }
-  };
-
-  if (dismissed || !data || !data.ok) return null;
+  if (!data) return null;
+  const ok = data.ok;
+  if (!ok) {
+    // Show a red bar naming what to fix - so the operator sees WHY the sponsor API is quiet.
+    return (
+      <div className="flex items-center gap-3 px-4 py-2 rounded-md font-mono text-[11.5px]"
+        style={{ background: "rgba(181,67,47,0.08)", border: `1px solid ${C.rust}`, color: C.ink }}>
+        <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+          style={{ background: C.rust, color: "#fff" }}>
+          <i className="fa-solid fa-triangle-exclamation text-[10px]"></i>
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="font-semibold" style={{ color: C.rust }}>Live Razorpay API check unavailable.</span>
+          <span style={{ color: C.softText }}> {data.detail || "Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET on the backend to enable."}</span>
+        </div>
+      </div>
+    );
+  }
 
   const source = data.reason || "payments";
   return (
@@ -50,11 +57,6 @@ export default function RazorpayVerificationBar({ runId }) {
           {data.razorpay_request_id && <> · req-id {data.razorpay_request_id.slice(0, 14)}…</>}
         </span>
       </div>
-      <button onClick={hide} title="Dismiss (persists per browser)"
-        className="text-[10px] uppercase tracking-wider px-2 py-1 rounded hover:bg-black/5 transition-colors shrink-0"
-        style={{ color: C.softText }}>
-        <i className="fa-solid fa-xmark text-[11px]"></i>
-      </button>
     </div>
   );
 }

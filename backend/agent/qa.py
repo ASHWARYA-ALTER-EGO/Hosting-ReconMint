@@ -46,9 +46,12 @@ REFUSE_ANSWER = (
 )
 
 CAPABILITIES_ANSWER = (
-    "I can only talk about this run: fees (MDR, GST, TCS), amount reconciled, match rate, "
-    "exceptions, missing bank credits, chargebacks, duplicates, payout variance, "
-    "the three source files, and a specific payment id (pay_…)."
+    "I answer grounded questions about this reconciliation run. Try one of these: "
+    "\"how much did fees eat this batch?\", \"what is the total amount reconciled?\", "
+    "\"how many exceptions need review?\", \"which payments are missing in bank?\", "
+    "\"show me the amount mismatches\", \"how do I fix pay_0001002?\", or \"what is "
+    "the total variance in the batch?\". Every rupee I put on screen is verified against "
+    "the audit table before you see it."
 )
 
 SOURCE_FILES_ANSWER = (
@@ -82,8 +85,15 @@ _ON_TOPIC_RE = re.compile(
 )
 
 _GREETING_RE = re.compile(
-    r"^(hi|hello|hey|yo)[\s!.?]*$"
-    r"|^(help|what can you do|what do you do)[\s?.!]*$",
+    r"^(hi|hello|hey|yo|sup)[\s!.?]*$"
+    r"|^(help|what can you do|what do you do|what can i ask|examples?|how does this work)[\s?.!]*$",
+    re.I,
+)
+
+# Casual "give me the summary" style questions -> route to match_rate so operator gets a real number.
+_SUMMARY_RE = re.compile(
+    r"^(summary|overview|status|how did it go|what happened|give me the summary|"
+    r"tldr|tl;dr|short version|brief|report)[\s?.!]*$",
     re.I,
 )
 
@@ -149,6 +159,8 @@ def _keyword_intent(q: str) -> dict:
     q = _strip_mode_prefix(q)
     if _is_jailbreak(q) or _OFF_TOPIC_RE.search(q):
         return {"metric": "off_topic"}
+    if _SUMMARY_RE.search(q.strip()):
+        return {"metric": "match_rate"}
     if _GREETING_RE.search(q.strip()):
         return {"metric": "capabilities"}
     pid = None
@@ -195,6 +207,9 @@ def parse_intent(question: str) -> tuple[dict, bool]:
     cleaned = _strip_mode_prefix(question)
     if _is_jailbreak(cleaned) or _OFF_TOPIC_RE.search(cleaned):
         return {"metric": "off_topic"}, False
+    # Casual summary requests get a real number instead of a refusal.
+    if _SUMMARY_RE.search(cleaned.strip()):
+        return {"metric": "match_rate"}, False
     if _GREETING_RE.search(cleaned.strip()):
         return {"metric": "capabilities"}, False
     if not _looks_on_topic(cleaned) and not any(t.lower().startswith("pay_") for t in cleaned.split()):

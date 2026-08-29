@@ -1006,7 +1006,7 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
         <Reveal delay={130}>
           <p style={{ color: INK_SOFT, maxWidth: 660, lineHeight: 1.7, marginBottom: 30, fontSize: 14 }}>
             Multi-source reconciliation, settlement Q&amp;A, forward cash forecasting, tax-line
-            matching. Plus a live sponsor-API handshake, a per-record Repair Agent, and a
+            matching. Plus a live live Razorpay API check, a per-record Repair Agent, and a
             downstream artifact that closes the finance-ops loop.
           </p>
         </Reveal>
@@ -1016,7 +1016,7 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
           <FeatureCard tag="CASH · +7d" color={CARBON_BLUE} title="Forward Cash Forecast" body="Every in-flight settlement projected forward using the T+2 business-day rule. Past-due list surfaces automatically." delay={160} />
           <FeatureCard tag="TAX" color={STAMP_RED} title="Tax-line Matcher" body="MDR, GST on MDR, TCS reconstructed against Razorpay's schedule. Recover vs Reserve exposure per record." delay={210} />
 
-          {/* Row 2 - the agent proof + revenue advice + sponsor grounding */}
+          {/* Row 2 - the agent proof + revenue advice + Razorpay API grounding */}
           <FeatureCard tag="AGENT" color={CARBON_BLUE} title="Repair Agent branching" body="Per record, three strategies tried in order. First winner accepts. Every attempt logged in the Decisions tree." delay={260} />
           <FeatureCard tag="ADVICE" color={VERIFY_GREEN} title="Fee-slab recommendation" body="Reads observed MDR, compares against Razorpay slabs, projects annual savings. Turns audit into revenue advice." delay={310} />
           <FeatureCard tag="SPONSOR" color={STAMP_RED} title="Live Razorpay handshake" body="At ingest we call api.razorpay.com/v1/orders with the test keys. Real IDs. Real X-Request-Id an auditor can quote." delay={360} />

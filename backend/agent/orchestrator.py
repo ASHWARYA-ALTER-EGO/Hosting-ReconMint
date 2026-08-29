@@ -159,7 +159,7 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
                 r.get("detail", "")[:120],
                 "engine falls through to source-file-only reconciliation",
             ]
-        stage("Live Razorpay API handshake", detail,
+        stage("Razorpay-check Agent · live API grounding", detail,
               time.perf_counter() - ts,
               {"via": "razorpay-api", "status": status, "substeps": substeps})
         razorpay_verification = r
@@ -192,7 +192,7 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
         f"{inputs.counts.get('bank', 0)} bank rows parsed",
         "IST timezone normalized, amounts coerced to paise",
     ]
-    stage("Ingested & validated",
+    stage("Ingest Agent · schema + hygiene",
           f"{total_records} rows across 3 sources, schema checked",
           time.perf_counter() - ts,
           {"via": "rules", "substeps": base_substeps + header_substeps})
@@ -205,7 +205,7 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
     settle_n = int(result.stats["settlement_rows_active"])
     exact_n = int(result.stats["matched_exact"])
     dup_n = len(result.duplicates)
-    stage("Reconstructed fees + exact match",
+    stage("Match Agent · exact pass",
           f"{exact_n} matched on UTR + paise-exact amount",
           time.perf_counter() - ts, {"via": "deterministic", "substeps": [
               f"{settle_n} fee schedules recomputed (MDR 2%, GST 18% on MDR, TCS 1%)",
@@ -220,7 +220,7 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
     fuzzy_n = int(result.stats["matched_fuzzy"])
     unresolved = int(result.stats["settlement_rows_active"] - exact_n - fuzzy_n)
     from backend.engine.fuzzy import ACCEPT_THRESHOLD as _FZ_T
-    stage("Fuzzy recovery",
+    stage("Fuzzy Agent · near-miss recovery",
           f"{fuzzy_n} near-misses recovered (T+2 timing, UTR typos)",
           time.perf_counter() - ts, {"via": "deterministic", "substeps": [
               f"amount-bucket index scanned near-misses within +/- Rs.1",
@@ -287,16 +287,36 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
         fuzzy_n = int(result.stats["matched_fuzzy"])
         unresolved = int(result.stats["settlement_rows_active"] - exact_n - fuzzy_n)
 
-    stage("Repair Agent (branching)",
+    # Build a live sample of what the Repair Agent actually decided per record - real
+    # examples the operator can read as "the agent thinks". Kills "this is a pipeline".
+    per_record_narration = []
+    for pid, rep in list(repair_attempts_by_pid.items())[:5]:
+        attempts = rep["attempts"]
+        acc = rep["accepted_strategy"]
+        if acc:
+            hit = next((a for a in attempts if a["strategy"] == acc), None)
+            score = hit.get("score") if hit else None
+            per_record_narration.append(
+                f"decided {pid}: tried {len(attempts)}, "
+                f"accepted {acc}" + (f" @ {score:.2f}" if score is not None else "")
+            )
+        else:
+            per_record_narration.append(
+                f"decided {pid}: tried {len(attempts)} strategies, none cleared threshold -> escalate"
+            )
+
+    stage("Repair Agent · per-record branching",
           f"{repair_records_recovered} of {repair_records_touched} unmatched settlements recovered "
           f"across {total_attempts_logged} strategy attempts",
           time.perf_counter() - ts, {"via": "agent", "substeps": (
               [f"{repair_records_touched} unmatched settlements handed to the Repair Agent",
                f"3 strategies tried in order per record (first winner accepts)",
                *(f"{k}: {v['accepted']}/{v['tried']} accepted"
-                 for k, v in per_strategy_stats.items())]
+                 for k, v in per_strategy_stats.items()),
+               *per_record_narration]
               if repair_records_touched > 0 else
-              ["no still-unmatched settlements after fuzzy - Repair Agent idle"]
+              ["no still-unmatched settlements after fuzzy pass",
+               "Repair Agent stayed idle - clean batch"]
           )})
 
     elapsed = time.perf_counter() - t0
@@ -404,7 +424,7 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
         s = d.get("severity") or "info"
         sev_counts[s] = sev_counts.get(s, 0) + 1
     ghost_n = len(result.unmatched_bank)
-    stage("Triaged exceptions",
+    stage("Triage Agent · route each exception",
           f"{exceptions} flagged, routed to auto-resolve / explain / escalate",
           time.perf_counter() - ts_triage, {"via": "rules", "substeps": [
               f"{sev_counts['critical']} critical, {sev_counts['warning']} warning, {sev_counts['info']} info",
@@ -441,7 +461,7 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
         audit = AuditLog()
         audit.start_run(run_id, meta)
         audit.log_decisions(run_id, decisions)
-        stage("Verified & logged", f"{len(decisions)} decisions written to the audit trail",
+        stage("Audit Agent · persist + verify", f"{len(decisions)} decisions written to the audit trail",
               time.perf_counter() - ts, {"via": "rules", "substeps": [
                   f"{len(decisions)} rows written to SQLite (runs + decisions tables)",
                   f"reconciled amount: Rs.{meta['reconciled_amount_paise'] / 100:,.2f}",

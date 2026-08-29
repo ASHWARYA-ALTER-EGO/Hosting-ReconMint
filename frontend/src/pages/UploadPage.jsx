@@ -198,7 +198,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
       i += 1;
       setRevealed(i);
       if (i >= n) clearInterval(id);
-    }, 1100);
+    }, 1500);
     return () => clearInterval(id);
   }, [runResult]);
 
@@ -291,7 +291,10 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
     }
     setBusy("upload");
     try {
-      const resp = await onRunUpload({ orders: files.orders, settlement: files.settlement, bank: files.bank }, false);
+      // Default to LLM=true on user uploads too so the AI cost / model / explanations
+      // strip on the Audit tab reflects real activity instead of the "$0.0000 · not used"
+      // that looks broken. Cost is ~$0.02 per batch on gpt-4o-mini.
+      const resp = await onRunUpload({ orders: files.orders, settlement: files.settlement, bank: files.bank }, true);
       setRunResult(resp);
     } catch (err) {
       // Most "validation errors" here trace back to a file landing in the wrong
@@ -839,7 +842,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
               )}
 
               <div className="rm-trace-inner p-6">
-                <AgentTrace trace={displaySteps} label="Live reconciliation trace" getExplainer={explainerFor} />
+                <AgentTrace trace={displaySteps} label="Multi-agent reconciliation log · 7 sub-agents, each making real decisions" getExplainer={explainerFor} />
               </div>
 
               {done && (

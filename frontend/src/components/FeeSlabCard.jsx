@@ -3,7 +3,7 @@ import * as api from "../api.js";
 
 // Fee-slab recommendation. Compares this batch's observed effective MDR against
 // Razorpay's published slabs and projects annual savings on projected volume.
-// Turns "reconciliation audit" into "revenue advice" - the sponsor-alignment card.
+// Turns "reconciliation audit" into "revenue advice" - the revenue-advice card.
 
 const C = {
   ink: "#1F2A1A",

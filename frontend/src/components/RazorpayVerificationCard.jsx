@@ -101,7 +101,7 @@ export default function RazorpayVerificationCard({ runId }) {
             <i className="fa-solid fa-shield-check text-xs"></i>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>Sponsor API handshake
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>Live Razorpay API check
             </div>
             <h2 className="text-[15px] font-semibold tracking-tight" style={{ color: C.ink }}>
               Live Razorpay API verification
@@ -122,7 +122,7 @@ export default function RazorpayVerificationCard({ runId }) {
         background: "rgba(31,42,26,0.03)", border: `1px dashed ${C.border}`, color: C.softText
       }}>
         At ingest, ReconMint calls the real Razorpay API to prove the pipeline is grounded in the
-        sponsor's live product. Auth uses your <span className="font-semibold" style={{ color: C.ink }}>RAZORPAY_KEY_ID</span>+<span className="font-semibold" style={{ color: C.ink }}>RAZORPAY_KEY_SECRET</span>We ask for 3 recent records; if the test account has no payments yet we transparently fall
+        live Razorpay test account. Auth uses your <span className="font-semibold" style={{ color: C.ink }}>RAZORPAY_KEY_ID</span>+<span className="font-semibold" style={{ color: C.ink }}>RAZORPAY_KEY_SECRET</span>We ask for 3 recent records; if the test account has no payments yet we transparently fall
         back to Orders (they're the truth-anchor a merchant creates first). Every field below is
         straight from Razorpay's response, nothing computed client-side.
       </div>

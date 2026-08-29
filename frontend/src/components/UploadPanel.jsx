@@ -99,7 +99,7 @@ export default function UploadPanel({
     }
     setBusy("upload");
     try {
-      const resp = await onRunUpload({ orders: files.orders, settlement: files.settlement, bank: files.bank }, false);
+      const resp = await onRunUpload({ orders: files.orders, settlement: files.settlement, bank: files.bank }, true);
       setRunResult(resp);
     } catch (err) {
       setError({ title: "Validation Errors", items: [String(err.message)] });
@@ -342,7 +342,7 @@ export default function UploadPanel({
                 </button>
               )}
             </div>
-            <AgentTrace trace={displaySteps} label="Live reconciliation trace" />
+            <AgentTrace trace={displaySteps} label="Multi-agent reconciliation log · 7 sub-agents, each making real decisions" />
             {done && (
               <div className="mt-5 flex items-center gap-2 text-xs font-medium text-teal-800 bg-teal-50/70 border border-teal-100 rounded-lg px-3 py-2 w-fit animate-[upnlFade_0.4s_ease-out]">
                 <i className="fa-solid fa-shield-halved text-teal-600"></i>
