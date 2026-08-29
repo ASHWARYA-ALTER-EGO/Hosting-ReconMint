@@ -18,11 +18,13 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 
-from backend.engine.validation import REQUIRED_COLUMNS, InputValidationError
+from difflib import SequenceMatcher
+
+from backend.engine.validation import REQUIRED_COLUMNS, OPTIONAL_COLUMNS, InputValidationError
 
 IST = "Asia/Kolkata"
 
@@ -31,33 +33,143 @@ DEFAULT_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "
 TABLE_EXTENSIONS = (".csv", ".xlsx", ".xlsm", ".xls", ".xlsb")
 EXCEL_EXTENSIONS = (".xlsx", ".xlsm", ".xls", ".xlsb")
 
-# Common merchant-export spellings → the engine's required names.
+# Common merchant-export spellings -> the engine's canonical column names.
+# Keys are normalized (lowercase, non-alnum -> _). Real Razorpay dashboard exports use
+# variants like "Payment ID", "Order Amount", "Settlement UTR", "Fee", "Tax" - all covered.
 COLUMN_ALIASES: dict[str, dict[str, str]] = {
     "orders": {
+        # order_id
         "orderid": "order_id", "order_no": "order_id", "orderno": "order_id",
-        "order_number": "order_id", "order": "order_id",
+        "order_number": "order_id", "order": "order_id", "order_ref": "order_id",
+        "order_reference": "order_id", "receipt": "order_id",
+        # timestamp
         "created_at": "timestamp", "created_on": "timestamp", "order_date": "timestamp",
         "datetime": "timestamp", "date_time": "timestamp", "date": "timestamp",
+        "placed_at": "timestamp", "placed_on": "timestamp", "order_created_at": "timestamp",
+        # gross_amount
         "gross": "gross_amount", "order_amount": "gross_amount", "gross_amt": "gross_amount",
+        "amount": "gross_amount", "total": "gross_amount", "total_amount": "gross_amount",
+        "value": "gross_amount", "order_value": "gross_amount", "invoice_amount": "gross_amount",
+        "amount_ordered": "gross_amount",
     },
     "settlement": {
+        # payment_id
         "paymentid": "payment_id", "pay_id": "payment_id", "payment": "payment_id",
-        "orderid": "order_id", "order_no": "order_id",
-        "gross": "gross_amount", "mdr": "mdr_fee", "gst": "gst_on_mdr",
+        "transaction_id": "payment_id", "txn_id": "payment_id", "payment_ref": "payment_id",
+        "payment_reference": "payment_id", "rzp_payment_id": "payment_id",
+        # order_id
+        "orderid": "order_id", "order_no": "order_id", "receipt_id": "order_id",
+        "rzp_order_id": "order_id",
+        # gross_amount
+        "gross": "gross_amount", "order_amount": "gross_amount", "gross_amt": "gross_amount",
+        "amount": "gross_amount", "captured_amount": "gross_amount",
+        "payment_amount": "gross_amount", "amount_captured": "gross_amount",
+        # fees
+        "mdr": "mdr_fee", "fee": "mdr_fee", "gateway_fee": "mdr_fee",
+        "processing_fee": "mdr_fee", "commission": "mdr_fee", "mdr_amount": "mdr_fee",
+        "gst": "gst_on_mdr", "tax": "gst_on_mdr", "gst_amount": "gst_on_mdr",
+        "gst_on_fee": "gst_on_mdr", "service_tax": "gst_on_mdr",
+        "tcs_amount": "tcs", "tds": "tcs", "tds_amount": "tcs",
+        # net
         "net": "net_settled", "net_amount": "net_settled", "net_settlement": "net_settled",
-        "utr": "settlement_utr", "payout_utr": "settlement_utr", "settlement_id_utr": "settlement_utr",
-        "settled_date": "settled_at", "settlement_date": "settled_at", "settled_on": "settled_at",
-        "refund": "refund_amount", "chargeback": "chargeback_amount",
+        "amount_settled": "net_settled", "settled_amount": "net_settled",
+        "net_credit": "net_settled", "credit_amount": "net_settled",
+        # utr
+        "utr": "settlement_utr", "payout_utr": "settlement_utr",
+        "settlement_id_utr": "settlement_utr", "settlement_id": "settlement_utr",
+        "settlement_ref": "settlement_utr", "settlement_reference": "settlement_utr",
+        "payout_reference": "settlement_utr", "rzp_settlement_id": "settlement_utr",
+        # date
+        "settled_date": "settled_at", "settlement_date": "settled_at",
+        "settled_on": "settled_at", "settled": "settled_at",
+        "credited_at": "settled_at", "credited_on": "settled_at",
+        "settlement_time": "settled_at", "date": "settled_at", "value_date": "settled_at",
+        # refunds / chargebacks
+        "refund": "refund_amount", "refunds": "refund_amount",
+        "refunded_amount": "refund_amount", "refund_amt": "refund_amount",
+        "chargeback": "chargeback_amount", "chargebacks": "chargeback_amount",
+        "chargeback_amt": "chargeback_amount", "dispute_amount": "chargeback_amount",
     },
     "bank": {
+        # value_date
         "date": "value_date", "txn_date": "value_date", "transaction_date": "value_date",
-        "credit_date": "value_date", "value_dt": "value_date",
+        "credit_date": "value_date", "value_dt": "value_date", "posting_date": "value_date",
+        "post_date": "value_date", "book_date": "value_date", "credited_on": "value_date",
+        "credited_at": "value_date", "settlement_date": "value_date",
+        # utr
         "utr_number": "utr", "utr_no": "utr", "reference": "utr", "ref_no": "utr",
-        "transaction_ref": "utr", "narration_ref": "utr",
+        "transaction_ref": "utr", "narration_ref": "utr", "reference_number": "utr",
+        "ref_number": "utr", "cheque_ref": "utr", "chq_ref": "utr",
+        "transaction_reference": "utr", "credit_ref": "utr",
+        # credit_amount
         "credit": "credit_amount", "deposit": "credit_amount", "credit_amt": "credit_amount",
-        "amount": "credit_amount",
+        "amount": "credit_amount", "amount_credited": "credit_amount",
+        "cr_amount": "credit_amount", "amt": "credit_amount",
+        "credit_inr": "credit_amount", "deposit_amount": "credit_amount",
     },
 }
+
+
+# For fuzzy header matching when no alias hits. Keys are canonical names, values are
+# a list of prototype tokens; we compute similarity between each unknown header and
+# every prototype, and if the best score >= 0.72 we take that mapping.
+FUZZY_HINTS: dict[str, dict[str, list[str]]] = {
+    "orders": {
+        "order_id":     ["order id", "order number", "order ref"],
+        "timestamp":    ["created", "placed", "order date", "date"],
+        "gross_amount": ["order amount", "gross", "total", "amount", "value"],
+    },
+    "settlement": {
+        "payment_id":       ["payment id", "transaction id", "pay id", "rzp payment id"],
+        "order_id":         ["order id", "receipt"],
+        "gross_amount":     ["order amount", "captured amount", "gross", "amount"],
+        "mdr_fee":          ["mdr", "fee", "commission", "processing fee", "gateway fee"],
+        "gst_on_mdr":       ["gst", "tax", "service tax"],
+        "tcs":              ["tcs", "tds"],
+        "refund_amount":    ["refund", "refunded amount"],
+        "chargeback_amount": ["chargeback", "dispute"],
+        "net_settled":      ["net", "amount settled", "settled amount", "net amount", "credited"],
+        "settlement_utr":   ["utr", "settlement id", "payout reference", "settlement reference"],
+        "settled_at":       ["settled date", "settlement date", "credited", "value date", "date"],
+    },
+    "bank": {
+        "value_date":    ["date", "value date", "transaction date", "posting date"],
+        "utr":           ["utr", "reference", "ref no", "narration", "cheque ref"],
+        "credit_amount": ["credit", "deposit", "amount credited", "amount"],
+    },
+}
+
+
+def _similar(a: str, b: str) -> float:
+    return SequenceMatcher(None, a, b).ratio()
+
+
+def _fuzzy_map(kind: str, unknown_headers: list[str],
+               already_mapped: set[str]) -> dict[str, str]:
+    """For every canonical column not yet mapped, pick the best fuzzy header match
+    (>= 0.72 similarity). Returns {header_norm -> canonical}."""
+    result: dict[str, str] = {}
+    used_headers: set[str] = set()
+    hints = FUZZY_HINTS.get(kind or "", {})
+    for canonical, protos in hints.items():
+        if canonical in already_mapped:
+            continue
+        best_header = None
+        best_score = 0.0
+        for header in unknown_headers:
+            if header in used_headers or not header:
+                continue
+            # substitute underscores for spaces so "order_id" ~ "order id"
+            header_pretty = header.replace("_", " ")
+            for proto in protos:
+                s = _similar(header_pretty, proto)
+                if s > best_score:
+                    best_score = s
+                    best_header = header
+        if best_header and best_score >= 0.72:
+            result[best_header] = canonical
+            used_headers.add(best_header)
+    return result
 
 
 def table_extension(filename: str | None) -> str | None:
@@ -130,27 +242,55 @@ def _frame_from_grid(raw: pd.DataFrame, kind: str | None) -> pd.DataFrame:
     return df
 
 
-def _apply_aliases(df: pd.DataFrame, kind: str | None) -> pd.DataFrame:
+def _apply_aliases(df: pd.DataFrame, kind: str | None,
+                   mapping_out: dict | None = None) -> pd.DataFrame:
+    """Rename columns using the explicit alias table then a fuzzy pass. Any mappings
+    made are recorded in `mapping_out` (if given) so the trace can show them."""
     aliases = COLUMN_ALIASES.get(kind or "", {})
-    rename = {}
+    rename: dict[str, str] = {}
     existing = set(df.columns)
+
+    # Pass 1: exact alias table lookups.
     for col in df.columns:
         target = aliases.get(col)
         if target and target not in existing and col not in rename:
             rename[col] = target
             existing.add(target)
+
+    # Pass 2: after exact aliases, whatever canonical names are still missing get a
+    # fuzzy attempt from the remaining unmapped headers.
+    canonical_needed = REQUIRED_COLUMNS.get(kind or "", set()) | OPTIONAL_COLUMNS.get(kind or "", set())
+    already_present = {rename.get(c, c) for c in df.columns} & canonical_needed
+    still_missing = canonical_needed - already_present
+    unmapped_headers = [c for c in df.columns
+                        if c not in rename and c not in canonical_needed]
+    fuzzy = _fuzzy_map(kind or "", unmapped_headers, already_present)
+    for header, canonical in fuzzy.items():
+        if canonical in still_missing and canonical not in existing:
+            rename[header] = canonical
+            existing.add(canonical)
+
+    if mapping_out is not None:
+        mapping_out.update(rename)
     return df.rename(columns=rename) if rename else df
 
 
-def read_table(path: str, kind: str | None = None) -> pd.DataFrame:
+def read_table(path: str, kind: str | None = None,
+               mapping_out: dict | None = None) -> pd.DataFrame:
     """Read a CSV or Excel workbook into a DataFrame with normalized column names."""
     ext = table_extension(path)
     if not ext:
         raise InputValidationError(f"Could not read '{os.path.basename(path)}' (unsupported type).")
     try:
         if ext == ".csv":
-            df = pd.read_csv(path)
-            df.columns = [_norm_col(c) for c in df.columns]
+            # Header-row detection for CSVs too - some real bank statements have a
+            # 2-3 line title block above the actual table.
+            raw = pd.read_csv(path, header=None, dtype=object, keep_default_na=False,
+                              on_bad_lines="skip", engine="python")
+            df = _frame_from_grid(raw, kind)
+            if df.empty:  # fallback: assume row 0 is the header (typical CSV)
+                df = pd.read_csv(path)
+                df.columns = [_norm_col(c) for c in df.columns]
         else:
             engine = _excel_engine(ext)
             xl = pd.ExcelFile(path, engine=engine)
@@ -172,7 +312,29 @@ def read_table(path: str, kind: str | None = None) -> pd.DataFrame:
             f"{kind or os.path.basename(path)} could not be read ({exc.__class__.__name__}). "
             "Export the first sheet as CSV or .xlsx with a header row."
         ) from exc
-    return _apply_aliases(df, kind)
+    return _apply_aliases(df, kind, mapping_out=mapping_out)
+
+
+def _fill_optional_columns(df: pd.DataFrame, kind: str) -> tuple[pd.DataFrame, list[str]]:
+    """Synthesize optional columns that a real merchant export may not carry.
+
+    Money columns get 0.0; text/date columns get an empty string so downstream
+    coercion doesn't crash. Returns (df, list_of_synthesized_column_names).
+    """
+    optional = OPTIONAL_COLUMNS.get(kind, set())
+    money_optional = {"mdr_fee", "gst_on_mdr", "tcs", "refund_amount", "chargeback_amount"}
+    synthesized: list[str] = []
+    for col in optional:
+        if col in df.columns:
+            continue
+        if col in money_optional:
+            df[col] = 0.0
+        elif col == "order_id":
+            df[col] = ""
+        else:
+            df[col] = ""
+        synthesized.append(col)
+    return df, synthesized
 
 
 def resolve_table_path(data_dir: str, name: str) -> str:
@@ -192,6 +354,10 @@ class ReconInputs:
     orders: pd.DataFrame
     settlement: pd.DataFrame
     bank: pd.DataFrame
+    # Detected header -> canonical mapping per file, for the trace/UI.
+    header_maps: dict[str, dict[str, str]] = field(default_factory=dict)
+    # Optional columns the loader had to synthesize (0.0 for money, empty for id).
+    synthesized: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def counts(self) -> dict[str, int]:
@@ -232,9 +398,17 @@ def load_inputs(data_dir: str | None = None) -> ReconInputs:
     """Load and normalize orders / settlement / bank tables (CSV or Excel) from `data_dir`."""
     data_dir = data_dir or DEFAULT_DATA_DIR
 
-    orders = read_table(resolve_table_path(data_dir, "orders"), "orders")
-    settlement = read_table(resolve_table_path(data_dir, "settlement"), "settlement")
-    bank = read_table(resolve_table_path(data_dir, "bank"), "bank")
+    header_maps: dict[str, dict[str, str]] = {"orders": {}, "settlement": {}, "bank": {}}
+    orders     = read_table(resolve_table_path(data_dir, "orders"),     "orders",     mapping_out=header_maps["orders"])
+    settlement = read_table(resolve_table_path(data_dir, "settlement"), "settlement", mapping_out=header_maps["settlement"])
+    bank       = read_table(resolve_table_path(data_dir, "bank"),       "bank",       mapping_out=header_maps["bank"])
+
+    # Fill in optional columns that a real merchant export might not have (fees, refunds,
+    # chargebacks). This is the difference between "your file is missing tcs" and "it works".
+    synthesized: dict[str, list[str]] = {}
+    orders, synthesized["orders"]         = _fill_optional_columns(orders,     "orders")
+    settlement, synthesized["settlement"] = _fill_optional_columns(settlement, "settlement")
+    bank, synthesized["bank"]             = _fill_optional_columns(bank,       "bank")
 
     # --- orders ---
     orders["timestamp"] = _to_ist(orders["timestamp"])
@@ -265,7 +439,8 @@ def load_inputs(data_dir: str | None = None) -> ReconInputs:
     bank["value_date_norm"] = bank["value_date"].dt.normalize()
     bank["utr"] = bank["utr"].astype(str).str.strip()
 
-    return ReconInputs(orders=orders, settlement=settlement, bank=bank)
+    return ReconInputs(orders=orders, settlement=settlement, bank=bank,
+                       header_maps=header_maps, synthesized=synthesized)
 
 
 if __name__ == "__main__":

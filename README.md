@@ -108,6 +108,30 @@ it can't prove.
   **Past-due** (settlements that should have landed by now — a live "escalate now" list), and
   **Beyond horizon** (won't land within the selected window). Click any bar to see the payment IDs
   landing that day. Fed by `GET /runs/{run_id}/cash-forecast?horizon_days=N&t_plus=2`.
+- **Smart column detection** — you don't have to match a rigid schema. The loader recognizes
+  common merchant-export spellings (`Payment ID`, `Order Amount`, `Settlement Reference`,
+  `Posting Date`, `Reference Number`, etc.), applies a fuzzy header match for anything not in
+  the alias table (`SequenceMatcher` threshold 0.72), and synthesizes optional columns
+  (`mdr_fee`, `gst_on_mdr`, `tcs`, `refund_amount`, `chargeback_amount`, `order_id`) as 0 when
+  they aren't in the file. CSVs and Excel workbooks both go through best-header-row detection,
+  so a bank statement with a 2-3 line title block above the table still parses. Every mapping
+  is shown in the reconcile trace ("orders: mapped `order_number → order_id`, `placed_at → timestamp`…").
+- **Fee-slab · revenue advice** — reads the batch's observed effective MDR and compares against
+  three Razorpay slabs (Standard 2.00%, Growth 1.75%, Enterprise 1.50%). Ships a headline
+  *"projected annual savings"* figure, an MDR-delta chip, a slab-ladder visual (current + target
+  markers), and a volume multiplier toggle (×3 / ×12 / ×24 / ×52). Turns a reconciliation audit
+  into an actionable sales-conversation opener. Fed by `GET /runs/{run_id}/fee-slab-advice`.
+- **CFO morning brief** — one-click *"CFO Brief"* button in the Dashboard header. Generates a
+  print-ready HTML one-pager: Net Available + cash position buckets + 7-day forecast table + top 3
+  exceptions + tax exposure + resolution progress, stamped and styled to match the ledger palette,
+  with a `@media print` sheet so save-as-PDF is clean. Fed by `GET /runs/{run_id}/cfo-brief.html`.
+- **Stress benchmark chip** — a small chip under the Dashboard title reports the latest results
+  from `scripts/benchmark.py`: *"Benchmark · 149,250 rows · 217.37s · 687 rec/s"* (real numbers
+  from a local run). Fed by `GET /benchmark`.
+- **"Prove it" receipts on Ask answers** — every aggregate answer (fees, reconciled amount,
+  variance) now carries a receipts block: click *"Prove it — show the exact rows"* and the top
+  15 `pay_XXX` ids that contributed to the number are listed with their per-record values,
+  cross-checkable against Exceptions and the source-file viewer.
 - **Repair Agent · per-record branching (agentic, not pipeline)** — every settlement that
   survives the exact + fuzzy passes is handed to a Repair Agent that tries three deterministic
   repair strategies in order, logs every attempt (score, verdict, latency, detail), and accepts

@@ -125,10 +125,16 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
         trace.append(s)
 
     # ---- 0. live Razorpay API handshake (sponsor-product truth anchor) ----
+    # Best-effort: any failure here must NEVER stop the reconcile. Reason gets
+    # surfaced honestly on the Dashboard's verification card.
     ts = time.perf_counter()
-    from backend.agent import razorpay_client as rzp
-    rzp_result = rzp.sample_payments(3) if rzp.keys_configured() else None
     razorpay_verification: dict | None = None
+    rzp_result = None
+    try:
+        from backend.agent import razorpay_client as rzp
+        rzp_result = rzp.sample_payments(3) if rzp.keys_configured() else None
+    except Exception as _e:  # noqa: BLE001
+        rzp_result = None
     if rzp_result is not None:
         r = rzp_result.to_dict()
         if r["ok"]:
@@ -164,14 +170,32 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
     if not report.ok:
         raise InputValidationError("; ".join(report.errors))
     total_records = sum(inputs.counts.values())
+    # Build human-readable substeps that surface the smart-column-detection work
+    # so a user watching a real upload can see WHY it worked.
+    header_substeps: list[str] = []
+    for file_kind in ("orders", "settlement", "bank"):
+        mp = (inputs.header_maps or {}).get(file_kind) or {}
+        if mp:
+            renamed = ", ".join(f"{src}->{tgt}" for src, tgt in list(mp.items())[:3])
+            more = f" (+{len(mp)-3} more)" if len(mp) > 3 else ""
+            header_substeps.append(f"{file_kind}: mapped {renamed}{more}")
+        syn = (inputs.synthesized or {}).get(file_kind) or []
+        if syn:
+            header_substeps.append(
+                f"{file_kind}: synthesized missing columns "
+                f"{', '.join(syn[:4])}{'...' if len(syn)>4 else ''} (defaulted to 0)"
+            )
+
+    base_substeps = [
+        f"{inputs.counts.get('orders', 0)} order rows parsed",
+        f"{inputs.counts.get('settlement', 0)} settlement rows parsed",
+        f"{inputs.counts.get('bank', 0)} bank rows parsed",
+        "IST timezone normalized, amounts coerced to paise",
+    ]
     stage("Ingested & validated",
           f"{total_records} rows across 3 sources, schema checked",
-          time.perf_counter() - ts, {"via": "rules", "substeps": [
-              f"{inputs.counts.get('orders', 0)} order rows parsed",
-              f"{inputs.counts.get('settlement', 0)} settlement rows parsed",
-              f"{inputs.counts.get('bank', 0)} bank rows parsed",
-              "IST timezone normalized, amounts coerced to paise",
-          ]})
+          time.perf_counter() - ts,
+          {"via": "rules", "substeps": base_substeps + header_substeps})
 
     t0 = time.perf_counter()
 

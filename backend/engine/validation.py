@@ -25,11 +25,17 @@ INFO = "info"
 
 REQUIRED_COLUMNS: dict[str, set[str]] = {
     "orders": {"order_id", "timestamp", "gross_amount"},
-    "settlement": {
-        "payment_id", "order_id", "gross_amount", "mdr_fee", "gst_on_mdr", "tcs",
-        "refund_amount", "chargeback_amount", "net_settled", "settlement_utr", "settled_at",
-    },
+    "settlement": {"payment_id", "gross_amount", "net_settled", "settlement_utr", "settled_at"},
     "bank": {"value_date", "utr", "credit_amount"},
+}
+
+# Columns the engine uses if present, but will synthesize (as 0.0) if missing so a
+# minimal merchant export still reconciles.
+OPTIONAL_COLUMNS: dict[str, set[str]] = {
+    "orders": set(),
+    "settlement": {"order_id", "mdr_fee", "gst_on_mdr", "tcs",
+                   "refund_amount", "chargeback_amount"},
+    "bank": set(),
 }
 
 

@@ -7,3 +7,6 @@ pydantic==2.9.2
 openpyxl==3.1.5
 xlrd==2.0.1
 pyxlsb==1.0.10
+# Live Razorpay API handshake (razorpay_client.py) - HTTPS calls to api.razorpay.com.
+# Missing this on Railway caused ModuleNotFoundError at reconcile time.
+requests==2.32.3

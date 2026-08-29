@@ -38,7 +38,14 @@ import time
 from dataclasses import dataclass, field, asdict
 from typing import Any
 
-import requests
+# `requests` is a hard-runtime dep on Railway; keep the import guarded so a missing
+# package degrades to a clean skip instead of exploding at reconcile time.
+try:
+    import requests
+    _HAS_REQUESTS = True
+except ImportError:  # pragma: no cover
+    requests = None  # type: ignore
+    _HAS_REQUESTS = False
 
 # Ensure RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET land in os.environ even when this module
 # is imported before anything in `llm` runs (uvicorn may import us via /razorpay/health first).
@@ -75,8 +82,15 @@ class ProbeResult:
 
 def _get(path: str, params: dict | None = None) -> ProbeResult:
     """Low-level GET wrapper. All Razorpay reads go through here."""
-    auth = _auth()
     url = f"{BASE_URL}{path}"
+    if not _HAS_REQUESTS:
+        return ProbeResult(
+            ok=False, status_code=None, url=url, latency_ms=0.0,
+            reason="dependency_missing",
+            detail="Python package `requests` is not installed - Razorpay handshake skipped. "
+                   "Add `requests` to requirements.txt and redeploy.",
+        )
+    auth = _auth()
     if auth is None:
         return ProbeResult(
             ok=False, status_code=None, url=url, latency_ms=0.0,
@@ -87,7 +101,7 @@ def _get(path: str, params: dict | None = None) -> ProbeResult:
     try:
         r = requests.get(url, params=params, auth=auth, timeout=TIMEOUT,
                          headers={"Accept": "application/json"})
-    except requests.RequestException as e:
+    except Exception as e:  # noqa: BLE001 - network exceptions vary
         latency = (time.perf_counter() - t0) * 1000
         return ProbeResult(ok=False, status_code=None, url=url, latency_ms=round(latency, 1),
                            reason="network_error", detail=str(e)[:180])
