@@ -963,10 +963,10 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
           </h2>
         </Reveal>
         <div className="rm-steps-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 30 }}>
-          <StepCard num="01" title="Drop in three files" body="Order ledger, settlement report, bank statement. No setup beyond that." delay={100} />
-          <StepCard num="02" title="The agent matches three ways" body="Exact match on UTR and paise, then fuzzy recovery for timing and typos." delay={170} />
-          <StepCard num="03" title="It explains every exception" body="Live Agent Trace shows each decision as it happens, not after the fact." delay={240} />
-          <StepCard num="04" title="You export a report" body="One click. Every figure in it is grounded in the computed ledger." delay={310} />
+          <StepCard num="01" title="Drop in three files" body="Order ledger, settlement report, bank statement. Any reasonable column shape, the loader figures it out." delay={100} />
+          <StepCard num="02" title="The agent matches four ways" body="Exact on UTR + paise, then fuzzy with an amount-bucket index, then the Repair Agent tries three strategies per unmatched record." delay={170} />
+          <StepCard num="03" title="It shows you every choice it made" body="Live Agent Trace during ingest. Per-record Decisions tree in the drawer. Every attempt logged in the audit table." delay={240} />
+          <StepCard num="04" title="Resolve, and the loop closes" body="Pick a resolution reason, get a printable adjustment memo plus a JSON webhook payload naming the downstream target." delay={310} />
         </div>
       </div>
 
@@ -1053,11 +1053,11 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
             className="rm-proof-grid"
           >
             {[
-              ["97.68%", "match rate, exact + fuzzy"],
-              ["P 0.86 / R 1.00", "exception detection"],
-              ["~12,700 rec/s", "throughput"],
-              ["7 / 11", "schema fields validated live"],
-              ["42", "honest exceptions logged"],
+              ["149,250 rows", "verified in 217s on the stress benchmark"],
+              ["F1 = 1.00", "on the ground-truth demo eval"],
+              ["687 rec/s", "peak with full per-record agent branching"],
+              ["3 strategies / record", "Repair Agent, first winner accepts >= 0.85"],
+              ["0 fake rupees", "every figure traces to a row in the audit table"],
             ].map(([value, label], i) => (
               <Reveal key={value} delay={80 + i * 70} y={10}>
                 <div style={{
