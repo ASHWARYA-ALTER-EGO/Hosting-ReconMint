@@ -314,7 +314,8 @@ function AgentTrace({ trace }) {
    ANSWER CARD  (ledger sheet with red verification stamp)
 ───────────────────────────────────────────────────────────── */
 function AnswerCard({ turn }) {
-  const { answer, figures = [], rows = [], verified, trace, plan } = turn.result;
+  const { answer, figures = [], rows = [], verified, trace, plan, receipts } = turn.result;
+  const [showReceipts, setShowReceipts] = useState(false);
 
   return (
     <div className="rounded-md border overflow-hidden mb-6 relative"
@@ -398,6 +399,65 @@ function AnswerCard({ turn }) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {receipts && receipts.sample && receipts.sample.length > 0 && (
+        <div className="px-6 pb-5">
+          <button
+            onClick={() => setShowReceipts((v) => !v)}
+            className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors font-mono"
+            style={{ color: "#B5432F" }}
+          >
+            <i className={`fa-solid fa-chevron-${showReceipts ? "down" : "right"} text-[9px]`} />
+            {showReceipts ? "Hide receipts" : "Prove it — show the exact rows"}
+            <span className="ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-mono"
+              style={{ background: "rgba(31,42,26,0.06)", color: "#6B7660", border: "1px solid rgba(31,42,26,0.14)" }}>
+              {receipts.total_records} row{receipts.total_records === 1 ? "" : "s"} aggregated
+            </span>
+          </button>
+          {showReceipts && (
+            <div className="mt-2.5 border rounded-md overflow-hidden font-mono"
+              style={{ borderColor: "#D9E3C8", background: "#F3F6ED" }}>
+              <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider border-b"
+                style={{ background: "#EEF2E4", borderColor: "#D9E3C8", color: "#6B7660" }}>
+                Sample of {Math.min(receipts.sample.length, receipts.total_records)} of {receipts.total_records} rows the compute step aggregated
+                {receipts.total_records > receipts.sample.length &&
+                  <span className="normal-case ml-1"> · showing the top by contribution</span>}
+              </div>
+              <div className="max-h-56 overflow-y-auto">
+                <table className="w-full text-[11.5px]">
+                  <thead>
+                    <tr className="text-[10px] uppercase tracking-wider" style={{ color: "#8A9478" }}>
+                      {receipts.sample[0] && Object.keys(receipts.sample[0]).map((k) => (
+                        <th key={k} className={`text-left py-1.5 px-3 font-semibold ${k !== "id" ? "text-right" : ""}`}>{k}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {receipts.sample.map((r, i) => (
+                      <tr key={i} className="border-t" style={{ borderColor: "rgba(31,42,26,0.06)" }}>
+                        {Object.entries(r).map(([k, v]) => (
+                          <td key={k}
+                            className={`py-1.5 px-3 ${k !== "id" ? "text-right tabular-nums" : "font-semibold"}`}
+                            style={{ color: "#1F2A1A" }}>
+                            {typeof v === "number" && !Number.isInteger(v)
+                              ? api.formatINR?.(v) ?? v
+                              : v}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-3 py-1.5 border-t text-[10px] italic"
+                style={{ background: "#EEF2E4", borderColor: "#D9E3C8", color: "#6B7660" }}>
+                Every row above lives in the audit table for this run — cross-check any id in
+                Exceptions or the source-file viewer.
+              </div>
+            </div>
+          )}
         </div>
       )}
 

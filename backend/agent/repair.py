@@ -74,21 +74,37 @@ def _normalize_utr(utr: str) -> str:
 
 
 def _try_strategy_1_recap(settlement_row, bank: pd.DataFrame,
-                          available_idx: set[int]) -> Attempt:
+                          available_idx: set[int], indexes: dict | None = None) -> Attempt:
     """The tight fuzzy pass has already run; record its best-effort score for the tree.
 
-    This is intentionally cheap - we re-score the top candidate so the Decisions tab
-    shows a real number, not just a placeholder."""
+    Uses the amount-bucket index when available (only scans ± Rs.1 bucket) so this stays
+    O(1)-ish for large batches instead of O(available_bank)."""
     t0 = time.perf_counter()
     best: FuzzyCandidate | None = None
     net = int(settlement_row["net_paise"])
-    for bidx in available_idx:
-        row = bank.loc[bidx]
-        cand = _score_candidate(settlement_row, row, bidx)
-        if cand is None:
-            continue
-        if best is None or cand.score > best.score:
-            best = cand
+    if indexes is not None:
+        # bucket by whole rupee, scan ± 1 like fuzzy_match does
+        base_rupee = net // 100
+        candidates: list[int] = []
+        for k in (base_rupee - 1, base_rupee, base_rupee + 1):
+            for p, blist in indexes["amount"].items():
+                if p // 100 == k:
+                    candidates.extend(blist)
+        for bidx in candidates:
+            if bidx not in available_idx:
+                continue
+            cand = _score_candidate(settlement_row, bank.loc[bidx], bidx)
+            if cand is None:
+                continue
+            if best is None or cand.score > best.score:
+                best = cand
+    else:
+        for bidx in available_idx:
+            cand = _score_candidate(settlement_row, bank.loc[bidx], bidx)
+            if cand is None:
+                continue
+            if best is None or cand.score > best.score:
+                best = cand
     ms = round((time.perf_counter() - t0) * 1000, 2)
     if best is None:
         return Attempt(
@@ -175,21 +191,114 @@ def _try_strategy_3_widen_date(settlement_row, bank: pd.DataFrame,
     )
 
 
-STRATEGY_ORDER = [
-    _try_strategy_1_recap,
-    _try_strategy_2_normalize_utr,
-    _try_strategy_3_widen_date,
-]
+def build_repair_indexes(bank: pd.DataFrame, available_idx: set[int]) -> dict:
+    """Pre-build lookup tables that turn every strategy from O(available_bank) to O(1)-ish.
+
+    - `amount_index`   : {credit_paise -> [bank_idx, ...]}   for strategies 2 and 3
+    - `norm_utr_index` : {(credit_paise, normalized_utr) -> bank_idx}   for strategy 2
+    """
+    amount_index: dict[int, list[int]] = {}
+    norm_utr_index: dict[tuple[int, str], int] = {}
+    for bidx in available_idx:
+        row = bank.loc[bidx]
+        p = int(row["credit_paise"])
+        amount_index.setdefault(p, []).append(int(bidx))
+        n_utr = _normalize_utr(row.get("utr"))
+        if n_utr:
+            # first bidx wins on collision; that's fine for the exact-match retry
+            norm_utr_index.setdefault((p, n_utr), int(bidx))
+    return {"amount": amount_index, "norm_utr": norm_utr_index}
+
+
+def _try_strategy_2_normalize_utr_indexed(settlement_row, bank: pd.DataFrame,
+                                          available_idx: set[int], idx: dict) -> Attempt:
+    t0 = time.perf_counter()
+    target_net = int(settlement_row["net_paise"])
+    target_utr = _normalize_utr(settlement_row.get("settlement_utr"))
+    if not target_utr:
+        ms = round((time.perf_counter() - t0) * 1000, 2)
+        return Attempt(strategy="normalize_utr", verdict="no_candidate", ms=ms,
+                       detail="settlement has no UTR to normalize")
+    hit = idx["norm_utr"].get((target_net, target_utr))
+    ms = round((time.perf_counter() - t0) * 1000, 2)
+    if hit is not None and hit in available_idx:
+        return Attempt(
+            strategy="normalize_utr", verdict="accepted",
+            score=1.0, ms=ms, bank_idx=int(hit),
+            detail=f"exact match on normalized UTR '{target_utr}' + net Rs.{target_net/100:,.2f}",
+        )
+    return Attempt(
+        strategy="normalize_utr", verdict="rejected",
+        score=0.0, ms=ms,
+        detail=f"no bank row matched normalized UTR '{target_utr}' + net Rs.{target_net/100:,.2f}",
+    )
+
+
+def _try_strategy_3_widen_date_indexed(settlement_row, bank: pd.DataFrame,
+                                       available_idx: set[int], idx: dict) -> Attempt:
+    t0 = time.perf_counter()
+    target_net = int(settlement_row["net_paise"])
+    settled = settlement_row["settled_date"]
+    best_idx: int | None = None
+    best_day_diff: int | None = None
+    for bidx in idx["amount"].get(target_net, ()):
+        if bidx not in available_idx:
+            continue
+        day_diff = int((bank.loc[bidx, "value_date_norm"] - settled).days)
+        if day_diff < 0 or day_diff > WIDENED_DATE_WINDOW_DAYS:
+            continue
+        if best_day_diff is None or day_diff < best_day_diff:
+            best_day_diff = day_diff
+            best_idx = int(bidx)
+    ms = round((time.perf_counter() - t0) * 1000, 2)
+    if best_idx is None:
+        return Attempt(
+            strategy="widen_date_window", verdict="rejected", score=0.0, ms=ms,
+            detail=f"no amount-exact bank row within +{WIDENED_DATE_WINDOW_DAYS} days",
+        )
+    score = round(max(0.0, 1.0 - best_day_diff / (WIDENED_DATE_WINDOW_DAYS + 1)), 4)
+    verdict = "accepted" if score >= ACCEPT_THRESHOLD else "rejected"
+    return Attempt(
+        strategy="widen_date_window", verdict=verdict, score=score, ms=ms,
+        bank_idx=(best_idx if verdict == "accepted" else None),
+        detail=(f"amount-exact bank row landed T+{best_day_diff} days"
+                + (f", score {score:.3f} >= threshold" if verdict == "accepted"
+                   else f", score {score:.3f} < threshold {ACCEPT_THRESHOLD}")),
+    )
 
 
 def repair_settlement(settlement_row, bank: pd.DataFrame,
-                      available_idx: set[int]) -> RepairOutcome:
-    """Run repair strategies in order. Stop when one accepts. Log every attempt."""
+                      available_idx: set[int], indexes: dict | None = None) -> RepairOutcome:
+    """Run repair strategies in order. Stop when one accepts. Log every attempt.
+
+    Pass `indexes` (from build_repair_indexes) to make strategies 2 and 3 O(1); without
+    them the module falls back to linear scans which is fine for small batches.
+    """
     outcome = RepairOutcome()
-    for strategy_fn in STRATEGY_ORDER:
-        attempt = strategy_fn(settlement_row, bank, available_idx)
-        outcome.attempts.append(attempt)
-        if attempt.verdict == "accepted":
-            outcome.accepted = attempt
-            break
+
+    # strategy 1: recap (indexed when available)
+    a1 = _try_strategy_1_recap(settlement_row, bank, available_idx, indexes)
+    outcome.attempts.append(a1)
+    if a1.verdict == "accepted":
+        outcome.accepted = a1
+        return outcome
+
+    # strategy 2: normalize UTR
+    if indexes is not None:
+        a2 = _try_strategy_2_normalize_utr_indexed(settlement_row, bank, available_idx, indexes)
+    else:
+        a2 = _try_strategy_2_normalize_utr(settlement_row, bank, available_idx)
+    outcome.attempts.append(a2)
+    if a2.verdict == "accepted":
+        outcome.accepted = a2
+        return outcome
+
+    # strategy 3: widen date window
+    if indexes is not None:
+        a3 = _try_strategy_3_widen_date_indexed(settlement_row, bank, available_idx, indexes)
+    else:
+        a3 = _try_strategy_3_widen_date(settlement_row, bank, available_idx)
+    outcome.attempts.append(a3)
+    if a3.verdict == "accepted":
+        outcome.accepted = a3
     return outcome

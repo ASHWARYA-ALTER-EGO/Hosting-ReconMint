@@ -9,6 +9,8 @@ import TaxExposureCard from "../components/TaxExposureCard.jsx";
 import QualitySignalsCard from "../components/QualitySignalsCard.jsx";
 import RazorpayVerificationCard from "../components/RazorpayVerificationCard.jsx";
 import RepairAgentCard from "../components/RepairAgentCard.jsx";
+import FeeSlabCard from "../components/FeeSlabCard.jsx";
+import BenchmarkChip from "../components/BenchmarkChip.jsx";
 import { openReport } from "../report.js";
 
 /* ————————————————————————————————————————————————
@@ -758,6 +760,7 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
               message="Hover any card, chart segment, or bar to see what it means — accuracy stats, breakdown buckets, and the waterfall all explain themselves."
             />
           </div>
+          <div className="mt-2"><BenchmarkChip /></div>
           <div className="flex items-center text-xs mt-1 gap-2 flex-wrap" style={{ color: C.t60 }}>
             {run.isDemo && (
               <>
@@ -769,6 +772,8 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
           </div>
         </div>
         <div className="flex items-center gap-2.5">
+          <HeaderButton onClick={() => window.open(api.cfoBriefUrl(run.runId), "_blank", "noopener")}
+            icon="fa-solid fa-envelope-open-text" label="CFO Brief" />
           <HeaderButton onClick={() => openReport(run, evalData)} icon="fa-solid fa-file-lines" label="Report" />
           <HeaderButton onClick={onExport} icon="fa-solid fa-download" label="Audit export (CSV)" />
           <button
@@ -808,6 +813,11 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
         {/* Tax-line matcher — MDR / GST / TCS drift + per-record exposure */}
         <section className="dash-section" style={{ animationDelay: "40ms" }}>
           <TaxExposureCard runId={run.runId} />
+        </section>
+
+        {/* Fee-slab · revenue advice — turns audit into an actionable sales conversation */}
+        <section className="dash-section" style={{ animationDelay: "43ms" }}>
+          <FeeSlabCard runId={run.runId} />
         </section>
 
         {/* Repair Agent — per-record strategy branching, real choices under uncertainty */}

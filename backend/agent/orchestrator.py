@@ -207,7 +207,7 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
     # ---- Repair Agent: per-record strategy branching -------------------------
     # For every still-unmatched settlement, try three strategies in order and log
     # each attempt. This is the agentic layer: choices under uncertainty, per record.
-    from backend.agent.repair import repair_settlement
+    from backend.agent.repair import repair_settlement, build_repair_indexes
     from backend.engine.matcher import MATCHED_FUZZY, UNMATCHED
     ts = time.perf_counter()
     repair_attempts_by_pid: dict[str, dict] = {}
@@ -216,6 +216,8 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
     claimed_bank_idxs = set(int(i) for i in active.loc[active["matched_bank_idx"] >= 0,
                                                        "matched_bank_idx"])
     available_bank = set(bank.index) - claimed_bank_idxs
+    # O(1)-ish per-strategy lookups so this pass scales to 50k+ row batches
+    repair_indexes = build_repair_indexes(bank, available_bank)
 
     repair_records_touched = 0
     repair_records_recovered = 0
@@ -229,7 +231,7 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
     for pos, row in active.iterrows():
         if row["match_status"] != UNMATCHED:
             continue
-        outcome = repair_settlement(row, bank, available_bank)
+        outcome = repair_settlement(row, bank, available_bank, indexes=repair_indexes)
         repair_records_touched += 1
         for a in outcome.attempts:
             total_attempts_logged += 1

@@ -261,14 +261,25 @@ def compute(run_id: str, intent: dict) -> dict:
         figures = [fig("MDR", mdr), fig("GST on MDR", gst), fig("TCS", tcs), fig("Total fees", total)]
         answer = (f"Fees took {_inr(total)} across {len(rows)} settlements "
                   f"({_inr(mdr)} MDR + {_inr(gst)} GST + {_inr(tcs)} TCS).")
-        return {"answer": answer, "figures": figures, "rows": [], "tool": "aggregate_fees"}
+        # Receipts: the exact rows the aggregate came from (top 15 by MDR).
+        top = sorted(rows, key=lambda r: r["ledger"].get("mdr", 0), reverse=True)[:15]
+        receipts = [{"id": r["record_ref"],
+                     "mdr": round(r["ledger"].get("mdr", 0), 2),
+                     "gst": round(r["ledger"].get("gst", 0), 2),
+                     "tcs": round(r["ledger"].get("tcs", 0), 2)} for r in top]
+        return {"answer": answer, "figures": figures, "rows": [], "tool": "aggregate_fees",
+                "receipts": {"kind": "fees", "total_records": len(rows), "sample": receipts}}
 
     if metric == "reconciled_amount":
         recon = [r for r in rows if r["resolution"] in ("reconciled_clean", "reconciled_fee")]
         amt = sum(r["ledger"].get("actualNet", 0) for r in recon)
         figures = [fig("Reconciled amount", amt), fig("Reconciled count", len(recon))]
         answer = f"{len(recon)} settlements reconciled for {_inr(amt)} net."
-        return {"answer": answer, "figures": figures, "rows": [], "tool": "sum_reconciled"}
+        top = sorted(recon, key=lambda r: r["ledger"].get("actualNet", 0), reverse=True)[:15]
+        receipts = [{"id": r["record_ref"], "amount": round(r["ledger"].get("actualNet", 0), 2)}
+                    for r in top]
+        return {"answer": answer, "figures": figures, "rows": [], "tool": "sum_reconciled",
+                "receipts": {"kind": "reconciled", "total_records": len(recon), "sample": receipts}}
 
     if metric == "match_rate":
         run = audit.get_run(run_id) or {}
@@ -290,10 +301,15 @@ def compute(run_id: str, intent: dict) -> dict:
         return {"answer": answer, "figures": figures, "rows": listed, "tool": f"filter_{metric}"}
 
     if metric == "payout_variance":
-        var = sum(abs(r["ledger"].get("variance", 0)) for r in rows if r["ledger"].get("variance"))
+        with_var = [r for r in rows if r["ledger"].get("variance")]
+        var = sum(abs(r["ledger"].get("variance", 0)) for r in with_var)
         figures = [fig("Total absolute variance", var)]
         answer = f"Total expected-vs-actual net variance is {_inr(var)} across the batch."
-        return {"answer": answer, "figures": figures, "rows": [], "tool": "sum_variance"}
+        top = sorted(with_var, key=lambda r: abs(r["ledger"].get("variance", 0)), reverse=True)[:15]
+        receipts = [{"id": r["record_ref"],
+                     "variance": round(r["ledger"].get("variance", 0), 2)} for r in top]
+        return {"answer": answer, "figures": figures, "rows": [], "tool": "sum_variance",
+                "receipts": {"kind": "variance", "total_records": len(with_var), "sample": receipts}}
 
     if metric == "exceptions_summary":
         by_sev, by_cat = {}, {}
@@ -482,6 +498,7 @@ def ask(run_id: str, question: str) -> dict:
         "figures": result["figures"],
         "rows": result["rows"],
         "plan": result.get("plan"),
+        "receipts": result.get("receipts"),
         "verified": verified,
         "source": source,
         "trace": trace,

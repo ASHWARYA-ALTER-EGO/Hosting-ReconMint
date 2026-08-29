@@ -2,19 +2,33 @@
 // paise / lowercase-severity shapes into the camelCase shapes the pages render.
 
 function resolveApiBase() {
+  // 1. Build-time env var (preferred for Railway: set VITE_API_BASE_URL at build)
   const fromEnv = import.meta.env?.VITE_API_BASE_URL;
   if (fromEnv) return String(fromEnv).replace(/\/$/, "");
 
-  if (
-    typeof window !== "undefined" &&
-    window.__RECONMINT_CONFIG__ &&
-    "apiBaseUrl" in window.__RECONMINT_CONFIG__
-  ) {
-    return String(window.__RECONMINT_CONFIG__.apiBaseUrl).replace(/\/$/, "");
+  // 2. Runtime override via a small window global — lets a hosted deploy point
+  //    at a different backend without rebuilding. Frontend hosts (Cloudflare
+  //    Pages, Vercel, static Railway) can inject this in a <script> tag.
+  if (typeof window !== "undefined") {
+    const runtime = window.__RECONMINT_CONFIG__?.apiBaseUrl
+      || window.__RECONMINT_API_BASE__;
+    if (runtime) return String(runtime).replace(/\/$/, "");
   }
 
-  // Production: same-origin (nginx on Railway proxies API routes to the backend).
+  // 3. localStorage override (persistent per browser). Useful for a judge who
+  //    wants to point the deployed frontend at a different backend for testing.
+  //    Set with: localStorage.setItem("reconmint_api_base", "https://…")
+  try {
+    const stored = typeof localStorage !== "undefined"
+      && localStorage.getItem("reconmint_api_base");
+    if (stored) return String(stored).replace(/\/$/, "");
+  } catch { /* private mode */ }
+
+  // 4. Production fallback: same-origin. Requires a reverse proxy from the
+  //    frontend host to the backend for /reconcile, /runs, /ask, etc.
   if (import.meta.env?.PROD) return "";
+
+  // 5. Local dev.
   return "http://localhost:8000";
 }
 
@@ -71,7 +85,21 @@ function mapException(d) {
 
 // ---- low-level fetch -----------------------------------------------------
 async function req(path, opts = {}) {
-  const res = await fetch(API_BASE + path, opts);
+  let res;
+  try {
+    res = await fetch(API_BASE + path, opts);
+  } catch (e) {
+    // Network-level failure (DNS, CORS preflight refused, mixed content, offline).
+    // Craft a message the user can act on instead of a bare "Failed to fetch".
+    const base = API_BASE || "<same-origin>";
+    throw new Error(
+      `Could not reach the ReconMint backend at ${base}${path}. ` +
+      `Likely causes: (1) VITE_API_BASE_URL is not set for this build - set it ` +
+      `on the frontend service and redeploy; (2) the backend service is asleep or ` +
+      `down; (3) CORS: set RECONMINT_CORS_ORIGINS on the backend to your frontend origin. ` +
+      `Underlying error: ${e.message}`
+    );
+  }
   const isJson = (res.headers.get("content-type") || "").includes("application/json");
   const body = isJson ? await res.json() : await res.text();
   if (!res.ok) {
@@ -172,6 +200,10 @@ export function auditExportUrl(runId) {
   return `${API_BASE}/runs/${runId}/audit-export?format=csv`;
 }
 
+export function cfoBriefUrl(runId) {
+  return `${API_BASE}/runs/${runId}/cfo-brief.html`;
+}
+
 export function sourceFileUrl(name) {
   return `${API_BASE}/data/source/${name}`;
 }
@@ -196,6 +228,14 @@ export function getCashForecast(runId, { horizon = 7, tPlus = 2, asOf } = {}) {
 
 export function getTaxExposure(runId) {
   return req(`/runs/${runId}/tax-exposure`);
+}
+
+export function getFeeSlabAdvice(runId, { multiplier = 12 } = {}) {
+  return req(`/runs/${runId}/fee-slab-advice?annual_volume_multiplier=${multiplier}`);
+}
+
+export function getBenchmark() {
+  return req(`/benchmark`);
 }
 
 export function getQualitySignals(runId) {
