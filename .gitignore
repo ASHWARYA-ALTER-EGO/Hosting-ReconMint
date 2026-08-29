@@ -1,16 +1,89 @@
+# ─────────────────────────────────────────────────────────────
+# Python
+# ─────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .venv/
 venv/
-.env
-data/generated/
-*.db
-.DS_Store
-node_modules/
+env/
 
-# Claude / assistant files — never track
+# ─────────────────────────────────────────────────────────────
+# Node / frontend
+# ─────────────────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log
+
+# ─────────────────────────────────────────────────────────────
+# Secrets + runtime state (NEVER commit)
+# ─────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite
+*.sqlite3
+data/audit.db
+data/generated/
+data/runs/
+data/benchmark.json
+
+# Live Razorpay probe output — regenerated per run
+docs/razorpay_probe_output.json
+
+# ─────────────────────────────────────────────────────────────
+# OS / editor cruft
+# ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# ─────────────────────────────────────────────────────────────
+# Claude / AI assistant scaffolding (never track)
+# ─────────────────────────────────────────────────────────────
 .claude/
-CLAUDE.md
 **/.claude/
+CLAUDE.md
+CLAUDE.local.md
 *.claude
 memory/
+.cursor/
+.aider*
+.continue/
+
+# ─────────────────────────────────────────────────────────────
+# Working notes, roadmaps, and internal planning documents
+# These are useful for us but noise for the submission repo.
+# NOTE: FAILURES.md is intentionally NOT ignored — it's part of
+# the submission narrative and gets reviewed with the code.
+# ─────────────────────────────────────────────────────────────
+CHEATBOOK.md
+ROADMAP.md
+PREMIUM_PLAN.md
+FRONTEND_SPEC.md
+# any *.notes.md / *.plan.md / scratch/ dumps
+*.notes.md
+*.plan.md
+*.scratch.md
+scratch/
+notes/
+
+# ─────────────────────────────────────────────────────────────
+# Temporary / build artifacts
+# ─────────────────────────────────────────────────────────────
+tmp/
+.tmp/
+*.log
+*.tmp
