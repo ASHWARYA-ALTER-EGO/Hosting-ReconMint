@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import Lenis from "lenis";
+import "lenis/dist/lenis.css";
 import { formatINR } from "../api.js";
 import * as api from "../api.js";
 import FeeDonut from "../components/FeeDonut.jsx";
@@ -28,9 +30,23 @@ import { openReport } from "../report.js";
    cream   #FBFBF3   card surface
    ink-60  #6B7660   secondary text
    ink-40  #8A9478   tertiary text / labels
+
+   TYPE
+   display  'Special Elite' — the one characterful face, used the way a
+            typewriter ledger would set a masthead: sparingly, at size,
+            never for body copy or numerals.
+   mono     the existing UI mono stack — every label, table, and figure.
    -----------------------------------------------· */
 const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 const PRESS = "transition-transform duration-150 active:scale-[0.97] touch-manipulation";
+const FONT_DISPLAY = "'Special Elite', 'Courier New', monospace";
+
+// Card/chip/table geometry reads as a ledger sheet or index card, not a
+// software-default rounded box — sharp-ish corners throughout, matching the
+// "Field Register" / "Schema Fidelity Receipt" panels on the marketing site.
+const R_CARD = "rounded-[3px]";
+const R_CHIP = "rounded-[3px]";
+const R_BTN = "rounded-[4px]";
 
 const C = {
   ink: "#1F2A1A",
@@ -52,7 +68,7 @@ const C = {
  * mark instead of a plain rounded box, nods to the stamp/ledger identity
  * without repeating literal stripes on every surface.
  */
-function PremiumCard({ children, className = "", style = {}, as: Tag = "div", punch = false, ...rest }) {
+function PremiumCard({ children, className = "", style = {}, as: Tag = "div", punch = false, tilt = true, ...rest }) {
   const ref = useRef(null);
   const [pos, setPos] = useState({ x: 50, y: 0 });
   const [hovered, setHovered] = useState(false);
@@ -66,6 +82,11 @@ function PremiumCard({ children, className = "", style = {}, as: Tag = "div", pu
     setPos({ x, y });
   };
 
+  // Subtle paper-lift toward the cursor, degrees kept small so it reads as
+  // weight/tactility rather than a gimmick.
+  const tiltX = hovered && tilt ? ((50 - pos.y) / 50) * 2.2 : 0;
+  const tiltY = hovered && tilt ? ((pos.x - 50) / 50) * 2.2 : 0;
+
   return (
     <Tag
       ref={ref}
@@ -78,16 +99,19 @@ function PremiumCard({ children, className = "", style = {}, as: Tag = "div", pu
         if (t) handleMove(t.clientX, t.clientY);
       }}
       onTouchEnd={() => setHovered(false)}
-      className={`group/card relative rounded-md border overflow-hidden touch-manipulation font-mono ${className}`}
+      className={`group/card relative ${R_CARD} border overflow-hidden touch-manipulation font-mono ${className}`}
       style={{
         background: C.card,
         borderColor: hovered ? C.ink : C.border,
         transitionProperty: "transform, box-shadow, border-color",
         transitionDuration: "400ms",
         transitionTimingFunction: EASE,
-        transform: hovered ? "translateY(-3px)" : "translateY(0)",
+        transform: hovered
+          ? `perspective(900px) translateY(-3px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`
+          : "perspective(900px) translateY(0) rotateX(0) rotateY(0)",
+        willChange: "transform",
         boxShadow: hovered
-          ? "0 18px 36px -16px rgba(31,42,26,0.22), 0 4px 10px -4px rgba(31,42,26,0.10)"
+          ? "0 20px 40px -18px rgba(31,42,26,0.24), 0 6px 14px -6px rgba(31,42,26,0.12)"
           : "0 1px 2px rgba(31,42,26,0.05)",
         ...style,
       }}
@@ -116,7 +140,7 @@ function PremiumCard({ children, className = "", style = {}, as: Tag = "div", pu
         <span
           aria-hidden="true"
           className="absolute top-3 right-3 w-2 h-2 rounded-full"
-          style={{ border: `1px solid ${C.borderStrong}` }}
+          style={{ border: `1px solid ${C.borderStrong}`, boxShadow: `inset 0 1px 1px rgba(31,42,26,0.08)` }}
         />
       )}
       <div className="relative">{children}</div>
@@ -145,6 +169,43 @@ function useCountUp(target, { duration = 700, decimals = 0 } = {}) {
     return () => cancelAnimationFrame(raf.current);
   }, [target, duration]);
   return decimals > 0 ? value.toFixed(decimals) : Math.round(value);
+}
+
+/**
+ * Smooth-scroll the dashboard's internal scroll pane (not the window — this
+ * layout scrolls inside a fixed-height flex column) via Lenis. Wrapper/content
+ * point at the pane itself; a plain rAF loop drives it so it keeps ticking
+ * even if the tab loses focus mid-scroll. Respects reduced-motion and tears
+ * down cleanly on unmount / tab switches away from this page.
+ */
+function useLenisScroll(scrollRef) {
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return undefined;
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) return undefined;
+
+    const lenis = new Lenis({
+      wrapper: el,
+      content: el.firstElementChild || el,
+      duration: 1.05,
+      smoothWheel: true,
+      wheelMultiplier: 1,
+      touchMultiplier: 1.1,
+    });
+
+    let raf;
+    const tick = (time) => {
+      lenis.raf(time);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      lenis.destroy();
+    };
+  }, [scrollRef]);
 }
 
 function useReveal(delayMs = 0) {
@@ -214,7 +275,7 @@ function InfoHint({ hintKey, message, className = "" }) {
       </button>
 
       <div
-        className="absolute left-1/2 -translate-x-1/2 top-full mt-3 z-40 w-64 transition-all duration-200"
+        className={`absolute left-1/2 -translate-x-1/2 top-full mt-3 z-40 w-64 transition-all duration-200`}
         style={{
           opacity: open ? 1 : 0,
           transform: `translate(-50%, ${open ? "0px" : "-4px"})`,
@@ -223,7 +284,7 @@ function InfoHint({ hintKey, message, className = "" }) {
         }}
       >
         <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 border-l border-t rotate-45" style={{ background: C.card, borderColor: C.border }} />
-        <div className="relative rounded-md border p-3.5" style={{ background: C.card, borderColor: C.border, boxShadow: "0 12px 28px -12px rgba(31,42,26,0.25)" }}>
+        <div className={`relative ${R_CARD} border p-3.5`} style={{ background: C.card, borderColor: C.border, boxShadow: "0 12px 28px -12px rgba(31,42,26,0.25)" }}>
           <button
             type="button"
             aria-label="Dismiss hint"
@@ -237,7 +298,7 @@ function InfoHint({ hintKey, message, className = "" }) {
           <button
             type="button"
             onClick={dismiss}
-            className={`mt-2.5 w-full text-center text-xs font-semibold rounded py-1.5 ${PRESS}`}
+            className={`mt-2.5 w-full text-center text-xs font-semibold ${R_BTN} py-1.5 ${PRESS}`}
             style={{ background: C.ink, color: C.card, transitionTimingFunction: EASE, transitionProperty: "transform, background-color" }}
           >
             Got it
@@ -248,18 +309,47 @@ function InfoHint({ hintKey, message, className = "" }) {
   );
 }
 
+/**
+ * Stamp, the one signature element carried over from the marketing page's
+ * circular "VERIFIED" ink mark. Kept small and used exactly twice in this
+ * file (header, empty state) so it stays a mark of authenticity rather than
+ * decoration repeated into meaninglessness.
+ */
+function Stamp({ label = "AUDITED", size = 40, animate = true }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`relative shrink-0 rounded-full flex items-center justify-center select-none ${animate ? "dash-stamp-in" : ""}`}
+      style={{ width: size, height: size, transform: "rotate(-9deg)" }}
+    >
+      <div className="absolute inset-0 rounded-full" style={{ border: `1.5px solid ${C.red}` }} />
+      <div className="absolute inset-[3px] rounded-full" style={{ border: `1px dotted ${C.red}`, opacity: 0.55 }} />
+      <span
+        className="font-bold uppercase tracking-tighter text-center leading-[1.05] px-0.5"
+        style={{ fontSize: size * 0.185, color: C.red, fontFamily: FONT_DISPLAY }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
 function EmptyState({ onGoUpload }) {
   return (
     <div className="h-full flex flex-col items-center justify-center text-center px-6 font-mono" style={{ color: C.t40 }}>
-      <div className="relative mb-5">
+      <div className="relative mb-6">
         <div className="absolute inset-0 rounded-full blur-2xl scale-125 dash-float" style={{ background: "rgba(181,67,47,0.12)" }} />
-        <i className="fa-solid fa-table-columns text-5xl relative dash-float" style={{ color: "#C3CFAE" }}></i>
+        <div className="relative dash-float">
+          <Stamp label="NO RUN" size={72} />
+        </div>
       </div>
-      <p className="text-lg font-semibold mb-1.5" style={{ color: C.ink }}>No reconciliation run yet</p>
+      <p className="text-lg font-semibold mb-1.5" style={{ color: C.ink, fontFamily: FONT_DISPLAY, letterSpacing: "-0.01em" }}>
+        No reconciliation run yet
+      </p>
       <p className="text-sm mb-7 max-w-xs">Run a reconciliation to see the overview, accuracy, and breakdown here.</p>
       <button
         onClick={onGoUpload}
-        className={`px-7 py-3 rounded-md text-sm font-semibold min-h-[44px] ${PRESS}`}
+        className={`px-7 py-3 ${R_BTN} text-sm font-semibold min-h-[44px] ${PRESS} active:rotate-[-1deg]`}
         style={{ background: C.ink, color: C.card, boxShadow: "0 12px 24px -10px rgba(31,42,26,0.35)", transitionTimingFunction: EASE, transitionProperty: "transform, box-shadow" }}
       >
         Go to Upload
@@ -277,8 +367,14 @@ function MetricCard({ title, subtitle, value, footnote, tone, numeric, decimals 
       style={{ transitionProperty: "opacity, transform, box-shadow, border-color" }}
     >
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: C.t40 }}>
-          {title} {subtitle && <span className="normal-case font-normal" style={{ color: C.t40 }}>{subtitle}</span>}
+        <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-2.5" style={{ color: C.t40 }}>
+          <span style={{ color: C.red }}>—</span>
+          <span>{title} {subtitle && <span className="normal-case font-normal" style={{ color: C.t40 }}>{subtitle}</span>}</span>
+          {tone === "negative" && numeric > 0 && (
+            <span className="relative w-1.5 h-1.5 rounded-full ml-0.5" style={{ background: C.red }}>
+              <span className="absolute inset-0 rounded-full dash-pulse-ring" style={{ boxShadow: `0 0 0 2px rgba(181,67,47,0.45)` }} />
+            </span>
+          )}
         </h3>
         <div className="text-3xl font-bold tracking-tight tabular-nums" style={{ color: C.ink }}>
           {numeric !== undefined ? (decimals > 0 ? animated : `${animated}${typeof value === "string" ? value.replace(/[\d.,-]/g, "") : ""}`) : value}
@@ -293,6 +389,13 @@ function MetricCard({ title, subtitle, value, footnote, tone, numeric, decimals 
   );
 }
 
+/**
+ * Detection Accuracy, redrawn as a "receipt" panel to match the marketing
+ * site's Field Register / Schema Fidelity Receipt language: a stamped ink
+ * masthead rule, tabular-ledger stat columns divided by hairlines (not
+ * flat mint-green tiles), and a dotted "verified" seal instead of a plain
+ * pill chip.
+ */
 function AccuracyCard({ acc, onFirstInteract }) {
   const pct = (n) => `${Math.round(n * 100)}%`;
   const stats = [
@@ -301,33 +404,64 @@ function AccuracyCard({ acc, onFirstInteract }) {
     ["F1", acc.f1.toFixed(2), acc.f1],
   ];
   return (
-    <PremiumCard className="p-6">
-      <div className="flex items-center gap-2 mb-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.ink }}>Detection Accuracy</h2>
-        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded border" style={{ color: C.t40, background: C.bg, borderColor: C.border }}>vs ground truth</span>
+    <PremiumCard className="overflow-hidden" punch>
+      {/* masthead */}
+      <div
+        className="flex items-center justify-between px-6 py-4"
+        style={{ background: C.ink, borderBottom: `2px solid ${C.red}` }}
+      >
+        <div className="flex items-center gap-2.5">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.12em]" style={{ color: C.card, fontFamily: FONT_DISPLAY }}>
+            Detection Accuracy
+          </h2>
+        </div>
+        <span
+          className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider px-2 py-1 rounded-full"
+          style={{ border: `1px dotted rgba(251,251,243,0.55)`, color: "rgba(251,251,243,0.85)" }}
+        >
+          <i className="fa-solid fa-shield-halved text-[9px]"></i> vs ground truth
+        </span>
       </div>
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        {stats.map(([k, v, raw]) => (
-          <div
-            key={k}
-            onMouseEnter={onFirstInteract}
-            onTouchStart={onFirstInteract}
-            className="text-center rounded-md py-3 transition-colors duration-200 touch-manipulation cursor-default"
-            style={{ background: "transparent" }}
-            onMouseOver={(e) => (e.currentTarget.style.background = C.bg)}
-            onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
-          >
-            <div className="text-2xl font-bold tabular-nums" style={{ color: C.ink }}>{v}</div>
-            <div className="text-xs mt-1 mb-2" style={{ color: C.t60 }}>{k}</div>
-            <div className="h-1 mx-4 rounded-full overflow-hidden" style={{ background: C.border }}>
-              <div className="h-full rounded-full dash-grow" style={{ background: C.moss, "--target-w": `${Math.min(100, Math.max(0, raw * 100))}%` }} />
+
+      <div className="p-6">
+        {/* stat row, ledger columns with hairline dividers instead of tiles */}
+        <div className="grid grid-cols-3">
+          {stats.map(([k, v, raw], i) => (
+            <div
+              key={k}
+              onMouseEnter={onFirstInteract}
+              onTouchStart={onFirstInteract}
+              className="dash-section text-center px-2 touch-manipulation cursor-default"
+              style={{
+                animationDelay: `${i * 70}ms`,
+                borderLeft: i > 0 ? `1px dashed ${C.borderStrong}` : "none",
+              }}
+            >
+              <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: C.t40 }}>{k}</div>
+              <div className="text-[32px] leading-none font-bold tabular-nums mb-3" style={{ color: C.ink, fontFamily: FONT_DISPLAY }}>{v}</div>
+              <div className="h-[3px] mx-4 rounded-full overflow-hidden" style={{ background: C.border }}>
+                <div
+                  className="h-full rounded-full dash-grow"
+                  style={{ background: `linear-gradient(90deg, ${C.moss}, #7DA271)`, "--target-w": `${Math.min(100, Math.max(0, raw * 100))}%` }}
+                />
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-      <div className="flex items-center justify-between text-xs rounded-md p-3 border" style={{ background: C.bg, borderColor: C.border }}>
-        <span style={{ color: C.t60 }}><span className="font-semibold" style={{ color: C.moss }}>{acc.false_negatives}</span> missed (false negatives)</span>
-        <span style={{ color: C.t60 }}><span className="font-semibold" style={{ color: C.ochre }}>{acc.false_positives}</span> over-flagged (false positives)</span>
+          ))}
+        </div>
+
+        {/* perforated tear rule, ledger receipt motif */}
+        <div className="my-5 h-px" style={{ borderTop: `1px dashed ${C.borderStrong}` }} />
+
+        <div className="flex items-center justify-between text-xs">
+          <span className="flex items-center gap-2" style={{ color: C.t60 }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: C.moss }} />
+            <span className="font-semibold tabular-nums" style={{ color: C.ink }}>{acc.false_negatives}</span> missed (false negatives)
+          </span>
+          <span className="flex items-center gap-2" style={{ color: C.t60 }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: C.ochre }} />
+            <span className="font-semibold tabular-nums" style={{ color: C.ink }}>{acc.false_positives}</span> over-flagged (false positives)
+          </span>
+        </div>
       </div>
     </PremiumCard>
   );
@@ -366,21 +500,23 @@ function StackedBreakdown({ segments, total, onFirstInteract }) {
   };
 
   return (
-    <PremiumCard className="p-6">
+    <PremiumCard className="p-6" punch>
       <div className="flex items-center gap-2 mb-6">
         <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.ink }}>Reconciliation Breakdown</h2>
       </div>
 
-      <div className="h-6 w-full flex rounded-full overflow-hidden mb-4" style={{ boxShadow: `0 0 0 1px ${C.border}` }}>
-        {segments.map((s) => (
+      <div className="h-6 w-full flex overflow-hidden mb-4" style={{ boxShadow: `0 0 0 1px ${C.border}`, borderRadius: 2 }}>
+        {segments.map((s, i) => (
           <div
             key={s.label}
-            className="transition-[opacity,filter] duration-200 cursor-pointer touch-manipulation"
+            className="dash-bar-fill transition-[opacity,filter] duration-200 cursor-pointer touch-manipulation"
             style={{
               width: `${(s.count / total) * 100}%`,
               background: s.hex,
               opacity: active && active !== s.label ? 0.35 : 1,
               filter: active === s.label ? "brightness(1.1)" : "none",
+              transformOrigin: "left",
+              animationDelay: `${i * 60}ms`,
             }}
             onMouseEnter={() => activate(s.label)}
             onMouseLeave={() => setActive(null)}
@@ -401,7 +537,7 @@ function StackedBreakdown({ segments, total, onFirstInteract }) {
       >
         <div className="overflow-hidden">
           <div
-            className="flex items-start gap-2.5 rounded-md p-3 mb-4 text-xs leading-relaxed"
+            className={`flex items-start gap-2.5 ${R_CHIP} p-3 mb-4 text-xs leading-relaxed`}
             style={{
               border: activeSeg ? `1px dashed ${C.borderStrong}` : "1px dashed transparent",
               background: activeSeg ? C.bg : "transparent",
@@ -421,18 +557,18 @@ function StackedBreakdown({ segments, total, onFirstInteract }) {
           {segments.map((s) => (
             <tr
               key={s.label}
-              className="border-b rounded-md transition-colors duration-150 touch-manipulation cursor-pointer"
+              className={`border-b ${R_CHIP} transition-colors duration-150 touch-manipulation cursor-pointer`}
               style={{ borderColor: C.bg, background: active === s.label ? C.bg : "transparent" }}
               onMouseEnter={() => activate(s.label)}
               onMouseLeave={() => setActive(null)}
               onTouchStart={() => activate(active === s.label ? null : s.label)}
             >
-              <td className="py-3.5 flex items-center gap-2 pl-2 rounded-l-md">
+              <td className="py-3.5 flex items-center gap-2 pl-2 rounded-l-[3px]">
                 <span className="w-2.5 h-2.5 rounded-full block" style={{ background: s.hex }}></span>
                 <span style={{ color: C.t60 }}>{s.label}</span>
               </td>
               <td className="py-3.5 text-right font-medium tabular-nums" style={{ color: C.ink }}>{s.count}</td>
-              <td className="py-3.5 text-right w-20 pr-2 rounded-r-md tabular-nums" style={{ color: C.t60 }}>{((s.count / total) * 100).toFixed(2)}%</td>
+              <td className="py-3.5 text-right w-20 pr-2 rounded-r-[3px] tabular-nums" style={{ color: C.t60 }}>{((s.count / total) * 100).toFixed(2)}%</td>
             </tr>
           ))}
           <tr>
@@ -475,7 +611,7 @@ function buildWaterfall(bd) {
  * Bars carry a small dashed "ledger stitch" connector between steps,
  * reinforcing the paper-trail motif without a striped background.
  */
-function WaterfallBar({ step, onFirstInteract }) {
+function WaterfallBar({ step, index = 0, onFirstInteract }) {
   const [hovered, setHovered] = useState(false);
   return (
     <div
@@ -492,7 +628,7 @@ function WaterfallBar({ step, onFirstInteract }) {
       }}
     >
       <div
-        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-30 pointer-events-none whitespace-nowrap rounded-md text-[11px] font-medium px-2.5 py-1.5 transition-all duration-200"
+        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-30 pointer-events-none whitespace-nowrap rounded-[3px] text-[11px] font-medium px-2.5 py-1.5 transition-all duration-200"
         style={{
           background: C.ink,
           color: C.card,
@@ -507,18 +643,28 @@ function WaterfallBar({ step, onFirstInteract }) {
       </div>
 
       <div className="relative flex items-end" style={{ height: 190 }}>
+        {/* separate wrapper carries the mount-in rise so it never fights the
+            per-frame hover scaleX on the bar itself */}
         <div
-          className="w-11 sm:w-12 rounded-t-sm flex items-start justify-center pt-1 transition-transform duration-200 origin-bottom"
+          className="dash-water-rise"
           style={{
             height: Math.max(step.height, 2),
             marginBottom: step.marginBottom,
-            background: step.hex,
-            transform: hovered ? "scaleX(1.12)" : "scaleX(1)",
-            transitionTimingFunction: EASE,
-            boxShadow: hovered ? "0 8px 18px -8px rgba(31,42,26,0.4)" : "none",
+            transformOrigin: "bottom",
+            animationDelay: `${index * 55}ms`,
           }}
         >
-          <span className="text-[10px] font-semibold tabular-nums" style={{ color: "#FBFBF3" }}>{step.value}</span>
+          <div
+            className="w-11 sm:w-12 h-full rounded-t-[2px] flex items-start justify-center pt-1 transition-transform duration-200 origin-bottom"
+            style={{
+              background: step.hex,
+              transform: hovered ? "scaleX(1.12)" : "scaleX(1)",
+              transitionTimingFunction: EASE,
+              boxShadow: hovered ? "0 8px 18px -8px rgba(31,42,26,0.4)" : "none",
+            }}
+          >
+            <span className="text-[10px] font-semibold tabular-nums" style={{ color: "#FBFBF3" }}>{step.value}</span>
+          </div>
         </div>
         {step.showConnector && (
           <div
@@ -560,7 +706,7 @@ function Waterfall({ bd, onFirstInteract }) {
   const onPointerUp = () => setDragging(false);
 
   return (
-    <PremiumCard className="p-6 flex flex-col">
+    <PremiumCard className="p-6 flex flex-col" punch>
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.ink }}>Record Reconciliation Waterfall</h2>
         <span className="text-[10px] uppercase tracking-wide hidden sm:inline" style={{ color: C.t40 }}>drag / swipe to explore</span>
@@ -576,7 +722,7 @@ function Waterfall({ bd, onFirstInteract }) {
       >
         <div className="flex items-end min-w-[560px] w-max mx-auto">
           {steps.map((s, i) => (
-            <WaterfallBar key={i} step={s} onFirstInteract={onFirstInteract} />
+            <WaterfallBar key={i} step={s} index={i} onFirstInteract={onFirstInteract} />
           ))}
         </div>
       </div>
@@ -584,22 +730,29 @@ function Waterfall({ bd, onFirstInteract }) {
   );
 }
 
+/**
+ * FooterStrip, rebuilt as an ink ledger receipt (mirrors the marketing
+ * site's dark "Measured, not claimed" panel) rather than a pale flat row.
+ * Same three counters, no info dropped — just given the weight of a closing
+ * statement: dark ink field, a thin gold top rule, tabular tinted figures,
+ * and hairline (not full-tone) dividers between columns.
+ */
 function FooterStrip({ meta }) {
   // These counters capture what happened AT reconcile time. Explain-on-demand LLM
   // calls fired from the Exceptions drawer are counted separately and are visible
   // per-exception (the "Verified" badge on an AI explanation).
   const llmUsed = (meta.llm_calls || 0) > 0;
   const stats = [
-    { icon: "fa-solid fa-microchip", bg: "rgba(31,42,26,0.06)", color: C.ink,
+    { icon: "fa-solid fa-microchip", accent: "#EDEBDD",
       label: "AI cost at reconcile",
       value: llmUsed ? `$${(meta.llm_cost_usd_total || 0).toFixed(4)}` : "$0.0000",
       sub: llmUsed ? "verified against hallucination guard" : "reconcile ran without LLM (fast path)" },
-    { icon: "fa-solid fa-brain", bg: "rgba(184,134,59,0.12)", color: C.ochre,
+    { icon: "fa-solid fa-brain", accent: C.ochre,
       label: "Model",
       value: llmUsed ? "gpt-4o-mini" : "on-demand only",
       sub: llmUsed ? "verified narration on every explain call"
                    : "click Explain with AI on any exception to invoke" },
-    { icon: "fa-regular fa-circle-check", bg: "rgba(75,123,78,0.12)", color: C.moss,
+    { icon: "fa-regular fa-circle-check", accent: "#8FBF8A",
       label: "AI explanations",
       value: llmUsed
         ? `${meta.llm_verified_count || 0} verified / ${meta.llm_calls || 0} calls`
@@ -607,24 +760,34 @@ function FooterStrip({ meta }) {
       sub: "hallucination verifier rejected any ungrounded rupee" },
   ];
   return (
-    <PremiumCard as="footer" className="p-2 flex flex-col sm:flex-row items-stretch sm:items-center">
+    <footer
+      className={`relative overflow-hidden ${R_CARD} flex flex-col sm:flex-row`}
+      style={{ background: C.ink, boxShadow: "0 16px 32px -18px rgba(31,42,26,0.35)" }}
+    >
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px]" style={{ background: `linear-gradient(90deg, ${C.ochre}, #E4C77A, ${C.ochre})` }} />
+      <div className="px-4 pt-2.5 pb-1 sm:hidden text-[9px] uppercase tracking-[0.14em]" style={{ color: "rgba(251,251,243,0.4)" }}>
+        Measured, not claimed
+      </div>
       {stats.map((s, i) => (
         <div
           key={s.label}
-          className="flex items-center gap-3 px-4 py-2.5 flex-1 rounded-md transition-colors duration-150 touch-manipulation"
-          style={{ borderLeft: i > 0 ? `1px solid ${C.border}` : "none" }}
+          className="flex items-center gap-3.5 px-5 py-4 flex-1 touch-manipulation"
+          style={{ borderLeft: i > 0 ? "1px solid rgba(251,251,243,0.12)" : "none" }}
         >
-          <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: s.bg, color: s.color }}>
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+            style={{ border: `1px solid rgba(251,251,243,0.25)`, color: s.accent }}
+          >
             <i className={s.icon}></i>
           </div>
           <div className="min-w-0">
-            <div className="text-xs truncate" style={{ color: C.t40 }}>{s.label}</div>
-            <div className="text-sm font-semibold truncate" style={{ color: C.ink }}>{s.value}</div>
-            {s.sub && <div className="text-[10px] truncate" style={{ color: C.t40 }} title={s.sub}>{s.sub}</div>}
+            <div className="text-[10px] uppercase tracking-wider truncate" style={{ color: "rgba(251,251,243,0.45)" }}>{s.label}</div>
+            <div className="text-sm font-semibold truncate tabular-nums" style={{ color: C.card }}>{s.value}</div>
+            {s.sub && <div className="text-[10px] truncate" style={{ color: "rgba(251,251,243,0.4)" }} title={s.sub}>{s.sub}</div>}
           </div>
         </div>
       ))}
-    </PremiumCard>
+    </footer>
   );
 }
 
@@ -632,7 +795,7 @@ function HeaderButton({ onClick, icon, label }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-3.5 py-2 min-h-[40px] rounded-md text-sm font-medium font-mono ${PRESS}`}
+      className={`flex items-center gap-2 px-3.5 py-2 min-h-[40px] ${R_BTN} text-sm font-medium font-mono ${PRESS}`}
       style={{
         background: C.card,
         color: C.ink,
@@ -669,31 +832,31 @@ function FeeInsightsCard({ feeTotalsPaise, reconciledAmountPaise, anomalyCount }
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-5">
-        <div className="rounded-md p-3.5" style={{ background: C.bg }}>
+        <div className={`${R_CHIP} p-3.5`} style={{ background: C.bg }}>
           <div className="text-xs mb-1" style={{ color: C.t40 }}>Total fees deducted</div>
           <div className="text-xl font-bold tabular-nums" style={{ color: C.ink }}>{totalFees}</div>
         </div>
-        <div className="rounded-md p-3.5" style={{ background: C.bg }}>
+        <div className={`${R_CHIP} p-3.5`} style={{ background: C.bg }}>
           <div className="text-xs mb-1" style={{ color: C.t40 }}>% of reconciled amount</div>
           <div className="text-xl font-bold tabular-nums" style={{ color: C.ink }}>{pctOfSettlement}%</div>
         </div>
       </div>
 
       {largest ? (
-        <div className="flex items-center justify-between text-xs rounded-md p-3 border mb-3" style={{ background: C.bg, borderColor: C.border }}>
+        <div className={`flex items-center justify-between text-xs ${R_CHIP} p-3 border mb-3`} style={{ background: C.bg, borderColor: C.border }}>
           <span style={{ color: C.t60 }}>Largest fee category</span>
           <span className="font-semibold" style={{ color: C.ink }}>
             {largest[0]}. {formatINR(largest[1] / 100)}
           </span>
         </div>
       ) : (
-        <div className="text-xs rounded-md p-3 border mb-3" style={{ background: C.bg, borderColor: C.border, color: C.t40 }}>
+        <div className={`text-xs ${R_CHIP} p-3 border mb-3`} style={{ background: C.bg, borderColor: C.border, color: C.t40 }}>
           No fees recorded for this run.
         </div>
       )}
 
       {anomalyCount > 0 && (
-        <div className="flex items-center gap-2.5 text-xs rounded-md p-3 border" style={{ borderColor: C.ochre, background: "rgba(184,134,59,0.08)" }}>
+        <div className={`flex items-center gap-2.5 text-xs ${R_CHIP} p-3 border`} style={{ borderColor: C.ochre, background: "rgba(184,134,59,0.08)" }}>
           <i className="fa-solid fa-triangle-exclamation" style={{ color: C.ochre }}></i>
           <span style={{ color: C.t60 }}>
             <span className="font-semibold" style={{ color: C.ochre }}>{anomalyCount}</span> fee anomal{anomalyCount === 1 ? "y" : "ies"} detected, worth a review.
@@ -728,9 +891,13 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
   const { dismissed: hoverHintDismissed, dismiss: dismissHoverHint } = useOneTimeHint("dash_hover_hint_dismissed_v1");
   const onFirstInteract = hoverHintDismissed ? undefined : dismissHoverHint;
 
+  const scrollPaneRef = useRef(null);
+  useLenisScroll(scrollPaneRef);
+
   return (
     <div className="flex flex-col h-full overflow-hidden font-mono relative" style={{ background: C.bg }}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Special+Elite&display=swap');
         @keyframes dashFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
         .dash-float { animation: dashFloat 3.2s ease-in-out infinite; }
         @keyframes dashGrow { from { width: 0; } to { width: var(--target-w); } }
@@ -743,8 +910,36 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
           100% { transform: scale(1.9); opacity: 0; }
         }
         .dash-pulse-ring { animation: dashPulseRing 1.8s ${EASE} infinite; }
+
+        /* header settles down on load, once */
+        @keyframes dashHeaderIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .dash-header-in { animation: dashHeaderIn 550ms ${EASE} both; }
+
+        /* the ink stamp "lands" on mount, small overshoot then settles to its resting tilt */
+        @keyframes dashStampIn {
+          0% { opacity: 0; transform: scale(1.7) rotate(-30deg); }
+          55% { opacity: 1; transform: scale(0.94) rotate(-6deg); }
+          100% { opacity: 1; transform: scale(1) rotate(-9deg); }
+        }
+        .dash-stamp-in { animation: dashStampIn 650ms ${EASE} both; animation-delay: 150ms; }
+
+        /* breakdown segments draw in left-to-right, like a bar being filled */
+        @keyframes dashBarFill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+        .dash-bar-fill { animation: dashBarFill 650ms ${EASE} both; }
+
+        /* waterfall columns rise from the baseline, staggered per bar */
+        @keyframes dashWaterRise { from { transform: scaleY(0); opacity: 0.5; } to { transform: scaleY(1); opacity: 1; } }
+        .dash-water-rise { animation: dashWaterRise 600ms ${EASE} both; }
+
+        /* whole tab panel eases in on switch, on top of each card's own stagger */
+        @keyframes dashTabIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .dash-tab-in { animation: dashTabIn 380ms ${EASE} both; }
+
         @media (prefers-reduced-motion: reduce) {
-          .dash-float, .dash-grow, .dash-section, .dash-pulse-ring { animation: none !important; }
+          .dash-float, .dash-grow, .dash-section, .dash-pulse-ring,
+          .dash-header-in, .dash-stamp-in, .dash-bar-fill, .dash-water-rise, .dash-tab-in {
+            animation: none !important;
+          }
         }
       `}</style>
 
@@ -759,83 +954,106 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
       />
 
       <header
-        className="backdrop-blur-sm border-b px-6 py-4 flex justify-between items-center gap-4 sticky top-0 z-20 relative"
-        style={{ background: "rgba(251,251,243,0.92)", borderColor: C.border }}
+        className="backdrop-blur-sm px-6 pt-4 pb-0 sticky top-0 z-20 relative"
+        style={{ background: "rgba(251,251,243,0.92)" }}
       >
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-[26px] font-semibold tracking-tight" style={{ color: C.ink }}>
-              Reconciliation Overview
-            </h1>
-            {/* small rotated ledger stamp, echoes the hero mark instead of a gradient wordmark */}
-            <span
-              className="text-[9px] font-bold uppercase tracking-wide border rounded-full px-2 py-0.5 -rotate-3"
-              style={{ color: C.red, borderColor: C.red }}
+        <div className="dash-header-in flex justify-between items-center gap-4 pb-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1
+                className="text-[27px] font-bold tracking-tight leading-none"
+                style={{ color: C.ink, fontFamily: FONT_DISPLAY, letterSpacing: "-0.01em" }}
+              >
+                Reconciliation Overview
+              </h1>
+              <InfoHint
+                hintKey="dash_title_hint_dismissed_v1"
+                message="Hover any card, chart segment, or bar to see what it means, accuracy stats, breakdown buckets, and the waterfall all explain themselves."
+              />
+              <Stamp label="AUDITED" size={38} />
+            </div>
+            <div className="mt-2.5"><BenchmarkChip /></div>
+            <div className="flex items-center text-xs mt-2 gap-2 flex-wrap" style={{ color: C.t60 }}>
+              {run.isDemo && (
+                <>
+                  <span className={`px-2 py-0.5 ${R_CHIP} border`} style={{ background: C.bg, borderColor: C.border, color: C.t60 }}>Demo run (synthetic data)</span>
+                  <span style={{ color: C.t40 }}>·</span>
+                </>
+              )}
+              <span>Run ID: <b style={{ color: C.ink, fontWeight: 500 }}>{run.runId}</b></span>
+              <span style={{ color: C.t40 }}>·</span>
+              <span>Reconciled in <b style={{ color: C.ink }}>{
+                m.elapsed_seconds >= 0.1 ? `${m.elapsed_seconds}s`
+                : m.elapsed_seconds > 0 ? `${Math.round(m.elapsed_seconds * 1000)}ms`
+                : "under 1ms"
+              }</b> · throughput <b style={{ color: C.ink }}>{Math.round(m.throughput_rps).toLocaleString("en-IN")} rec/s</b></span>
+              <span style={{ color: C.t40 }}>·</span>
+              <span>{m.settlement_active} records · {m.exceptions_total} exceptions</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <HeaderButton
+              onClick={() => {
+                // Opened without "noopener" (deliberately) so we keep a same-origin
+                // window handle to trigger the print dialog once the brief has
+                // finished loading, rather than just dumping the user on the page.
+                const w = window.open(api.cfoBriefUrl(run.runId), "_blank");
+                if (w) {
+                  const triggerPrint = () => {
+                    try { w.focus(); w.print(); } catch { /* cross-origin fallback: user prints manually */ }
+                  };
+                  w.addEventListener("load", triggerPrint);
+                  // fallback in case the load event already fired before we attached
+                  setTimeout(triggerPrint, 900);
+                }
+              }}
+              icon="fa-solid fa-print" label="CFO Brief" />
+            <HeaderButton onClick={() => openReport(run, evalData)} icon="fa-solid fa-file-lines" label="Report" />
+            <HeaderButton onClick={onExport} icon="fa-solid fa-download" label="Audit export (CSV)" />
+            <button
+              onClick={onGoExceptions}
+              className={`relative flex items-center gap-2 px-3.5 py-2 min-h-[40px] ${R_BTN} text-sm font-medium font-mono ${PRESS} active:rotate-[-1deg]`}
+              style={{ background: C.ink, color: C.card, boxShadow: "0 10px 22px -12px rgba(31,42,26,0.5)", transitionTimingFunction: EASE, transitionProperty: "transform, box-shadow, background-color" }}
             >
-              Audited
-            </span>
-            <InfoHint
-              hintKey="dash_title_hint_dismissed_v1"
-              message="Hover any card, chart segment, or bar to see what it means, accuracy stats, breakdown buckets, and the waterfall all explain themselves."
-            />
-          </div>
-          <div className="mt-2"><BenchmarkChip /></div>
-          <div className="flex items-center text-xs mt-1 gap-2 flex-wrap" style={{ color: C.t60 }}>
-            {run.isDemo && (
-              <>
-                <span className="px-2 py-0.5 rounded-sm border" style={{ background: C.bg, borderColor: C.border, color: C.t60 }}>Demo run (synthetic data)</span>
-                <span>•</span>
-              </>
-            )}
-            <span>Run ID: {run.runId}</span>
-            <span>•</span>
-            <span>Reconciled in <b style={{ color: C.ink }}>{
-              m.elapsed_seconds >= 0.1 ? `${m.elapsed_seconds}s`
-              : m.elapsed_seconds > 0 ? `${Math.round(m.elapsed_seconds * 1000)}ms`
-              : "under 1ms"
-            }</b> · throughput <b style={{ color: C.ink }}>{Math.round(m.throughput_rps).toLocaleString("en-IN")} rec/s</b></span>
-            <span>•</span>
-            <span>{m.settlement_active} records · {m.exceptions_total} exceptions</span>
+              {m.exceptions_total > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full" style={{ background: C.red }}>
+                  <span className="absolute inset-0 rounded-full dash-pulse-ring" style={{ boxShadow: `0 0 0 2px rgba(181,67,47,0.5)` }} />
+                </span>
+              )}
+              <i className="fa-solid fa-circle-exclamation"></i><span>View exceptions</span>
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-2.5">
-          <HeaderButton onClick={() => window.open(api.cfoBriefUrl(run.runId), "_blank", "noopener")}
-            icon="fa-solid fa-envelope-open-text" label="CFO Brief" />
-          <HeaderButton onClick={() => openReport(run, evalData)} icon="fa-solid fa-file-lines" label="Report" />
-          <HeaderButton onClick={onExport} icon="fa-solid fa-download" label="Audit export (CSV)" />
-          <button
-            onClick={onGoExceptions}
-            className={`flex items-center gap-2 px-3.5 py-2 min-h-[40px] rounded-md text-sm font-medium font-mono ${PRESS}`}
-            style={{ background: C.ink, color: C.card, transitionTimingFunction: EASE, transitionProperty: "transform, box-shadow, background-color" }}
-          >
-            <i className="fa-solid fa-circle-exclamation"></i><span>View exceptions</span>
-          </button>
-        </div>
+        {/* ledger double-rule, echoes the masthead rule on the marketing page */}
+        <div style={{ borderTop: `2px solid ${C.ink}` }} />
+        <div className="mt-[3px]" style={{ borderTop: `1px solid ${C.border}` }} />
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
-        {/* Always-on metric strip - the operator's landing view. */}
-        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-          <MetricCard title="Match Rate" subtitle="(Reconciled)" value={`${m.reconciled_rate_pct}%`} numeric={m.reconciled_rate_pct} footnote={`${m.match_rate_pct}% matched (incl, fuzzy)`} delay={0} />
-          <MetricCard title="Records Processed" value={`${m.settlement_active}`} numeric={m.settlement_active} footnote={`${m.dataset_size} rows ingested`} delay={40} />
-          <MetricCard title="Processing Time" value={`${m.elapsed_seconds}s`} numeric={m.elapsed_seconds} footnote={`Throughput: ${Math.round(m.throughput_rps).toLocaleString("en-IN")} rec/s`} delay={80} />
-          <MetricCard title="Amount Reconciled" value={amount} footnote="net settled, verified" delay={120} />
-          <MetricCard title="Exceptions" subtitle="(Needs review)" value={`${m.exceptions_total}`} numeric={m.exceptions_total} footnote={`${exceptionsPct}% of records`} tone="negative" delay={160} />
-        </section>
+      <div ref={scrollPaneRef} className="flex-1 overflow-y-auto relative">
+        <div className="p-6 space-y-6">
+          {/* Always-on metric strip - the operator's landing view. */}
+          <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+            <MetricCard title="Match Rate" subtitle="(Reconciled)" value={`${m.reconciled_rate_pct}%`} numeric={m.reconciled_rate_pct} footnote={`${m.match_rate_pct}% matched (incl, fuzzy)`} delay={0} />
+            <MetricCard title="Records Processed" value={`${m.settlement_active}`} numeric={m.settlement_active} footnote={`${m.dataset_size} rows ingested`} delay={40} />
+            <MetricCard title="Processing Time" value={`${m.elapsed_seconds}s`} numeric={m.elapsed_seconds} footnote={`Throughput: ${Math.round(m.throughput_rps).toLocaleString("en-IN")} rec/s`} delay={80} />
+            <MetricCard title="Amount Reconciled" value={amount} footnote="net settled, verified" delay={120} />
+            <MetricCard title="Exceptions" subtitle="(Needs review)" value={`${m.exceptions_total}`} numeric={m.exceptions_total} footnote={`${exceptionsPct}% of records`} tone="negative" delay={160} />
+          </section>
 
-        {/* Bold Razorpay live-connection card, visible on every tab so the sponsor-product
-            integration is unmissable. Click to expand and see the real records fetched. */}
-        <RazorpayLiveCard runId={run.runId} />
+          {/* Bold Razorpay live-connection card, visible on every tab so the sponsor-product
+              integration is unmissable. Click to expand and see the real records fetched. */}
+          <RazorpayLiveCard runId={run.runId} />
 
-        {/* Tabbed body, kills scroll fatigue by grouping cards by intent. */}
-        <DashboardTabs
-          run={run}
-          m={m}
-          evalData={evalData}
-          segments={segments}
-          bdTotal={bdTotal}
-          onFirstInteract={onFirstInteract}
-        />
+          {/* Tabbed body, kills scroll fatigue by grouping cards by intent. */}
+          <DashboardTabs
+            run={run}
+            m={m}
+            evalData={evalData}
+            segments={segments}
+            bdTotal={bdTotal}
+            onFirstInteract={onFirstInteract}
+          />
+        </div>
       </div>
     </div>
   );
@@ -847,47 +1065,67 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
  */
 function DashboardTabs({ run, m, evalData, segments, bdTotal, onFirstInteract }) {
   const [tab, setTab] = useState("cash");
+  const tabRefs = useRef({});
+  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
 
   // Sub-set of tabs. Each has a label, icon, and a one-liner shown as a helper
   // subtitle so a judge understands what's inside before clicking.
   const TABS = [
-    { id: "cash",     label: "Cash",           icon: "fa-scale-balanced",     hint: "position now · forecast next 7d · tax exposure · slab advice" },
+    { id: "cash",     label: "Cash",           icon: "fa-scale-balanced",     hint: "" },
     { id: "recon",    label: "Reconciliation", icon: "fa-diagram-project",    hint: "match breakdown · Repair Agent · source files" },
     { id: "audit",    label: "Audit",          icon: "fa-shield-halved",      hint: "live Razorpay API check · accuracy · quality signals · AI cost" },
   ];
 
+  // Measure the active tab's button so the underline can glide to it instead
+  // of popping under a new tab, the way a receipt's stamped line would slide.
+  useEffect(() => {
+    const el = tabRefs.current[tab];
+    if (el) setIndicator({ left: el.offsetLeft, width: el.offsetWidth });
+  }, [tab]);
+
   return (
     <div>
       {/* Tab bar */}
-      <div className="flex items-center gap-1 mb-5 border-b" style={{ borderColor: C.border }}>
+      <div className="relative flex items-center gap-1 mb-5 border-b" style={{ borderColor: C.border }}>
         {TABS.map((t) => {
           const active = tab === t.id;
           return (
             <button
               key={t.id}
+              ref={(el) => (tabRefs.current[t.id] = el)}
               onClick={() => setTab(t.id)}
-              className="relative flex items-center gap-2 px-4 py-2.5 text-sm font-mono font-semibold transition-colors"
+              className="relative flex items-center gap-2 px-4 py-2.5 text-sm font-mono font-semibold transition-colors duration-200 rounded-t-[3px]"
               style={{
                 color: active ? C.ink : C.t60,
                 background: active ? "rgba(31,42,26,0.04)" : "transparent",
               }}
             >
-              <i className={`fa-solid ${t.icon} text-xs`} style={{ color: active ? C.red : C.t40 }}></i>
+              <i className={`fa-solid ${t.icon} text-xs transition-colors duration-200`} style={{ color: active ? C.red : C.t40 }}></i>
               <span>{t.label}</span>
-              {active && (
-                <span className="absolute left-2 right-2 -bottom-[1px] h-[2px] rounded-t" style={{ background: C.red }} />
-              )}
             </button>
           );
         })}
-        <span className="ml-auto pr-2 text-[10px]" style={{ color: C.t40 }}>
+        {/* sliding indicator, glides between tabs rather than re-appearing */}
+        <span
+          aria-hidden="true"
+          className="absolute -bottom-[1px] h-[2px]"
+          style={{
+            left: indicator.left + 8,
+            width: Math.max(indicator.width - 16, 0),
+            background: C.red,
+            transitionProperty: "left, width",
+            transitionDuration: "320ms",
+            transitionTimingFunction: EASE,
+          }}
+        />
+        <span className="ml-auto pr-2 text-[10px] transition-opacity duration-200" style={{ color: C.t40 }}>
           {TABS.find((t) => t.id === tab)?.hint}
         </span>
       </div>
 
       {/* Cash lane, the Finance Controller view. */}
       {tab === "cash" && (
-        <div className="space-y-6">
+        <div key="cash" className="dash-tab-in space-y-6">
           <section className="dash-section"><CashPositionCard runId={run.runId} /></section>
           <section className="dash-section" style={{ animationDelay: "40ms" }}>
             <CashForecastCard runId={run.runId} forceDemoMode={run.isDemo} />
@@ -903,7 +1141,7 @@ function DashboardTabs({ run, m, evalData, segments, bdTotal, onFirstInteract })
 
       {/* Reconciliation lane, how the numbers were arrived at. */}
       {tab === "recon" && (
-        <div className="space-y-6">
+        <div key="recon" className="dash-tab-in space-y-6">
           <section className="dash-section">
             <StackedBreakdown segments={segments} total={bdTotal} onFirstInteract={onFirstInteract} />
           </section>
@@ -921,7 +1159,7 @@ function DashboardTabs({ run, m, evalData, segments, bdTotal, onFirstInteract })
 
       {/* Audit lane, proof and trust. Razorpay bar lives above the tabs so it's on every tab. */}
       {tab === "audit" && (
-        <div className="space-y-6">
+        <div key="audit" className="dash-tab-in space-y-6">
           {evalData?.accuracy && (
             <section className="dash-section">
               <AccuracyCard acc={evalData.accuracy} onFirstInteract={onFirstInteract} />

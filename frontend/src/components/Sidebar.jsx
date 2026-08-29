@@ -9,15 +9,27 @@ const NAV_ITEMS = [
 
 const EASE = "cubic-bezier(0.4,0,0.2,1)";
 
+/**
+ * The sidebar is its own surface, a ledger cover, not another sheet of the
+ * same cream paper as the content pane it sits beside. Ink already existed
+ * in the palette as a text/border color; here it gets a real job.
+ */
+/**
+ * The sidebar is its own surface, a soft ledger wash, a shade deeper than
+ * the content pane's paper so it reads as distinct without going dark.
+ */
 const C = {
-  ink: "#1F2A1A",
-  red: "#B5432F",
-  redDeep: "#8F3323",
+  washTop: "#E6EFD8",      // sidebar base, top
+  washBase: "#D7E4C2",     // sidebar base, subtle gradient toward the foot
+  ink: "#1F2A1A",          // dark ledger ink — text, and the logo chip only
+  brass: "#A9832E",        // premium hairline / seal accent, used sparingly
+  red: "#B5432F",          // brand red, badges + counters
+  redDeep: "#8F3323",      // active nav text, tuned for light backgrounds
   moss: "#4B7B4E",
-  bg: "#FBFBF3",
-  card: "#F3F6ED",
-  border: "#E7EEDD",
-  borderStrong: "#D9E3C8",
+  cream: "#FBFBF3",        // the content pane's paper, used for the CTA + toggle
+  card: "#EEF3E1",         // active nav background, a touch deeper than the wash
+  border: "rgba(31,42,26,0.10)",
+  borderStrong: "rgba(31,42,26,0.16)",
   t60: "#5C6752",
   t40: "#8A9478",
 };
@@ -109,11 +121,12 @@ export default function Sidebar({
         width: collapsed ? 72 : 260,
         transition: `width 0.25s ${EASE}`,
         overflow: "visible",
-        background: C.bg,
-        borderRight: `1px solid ${C.border}`,
+        background: `linear-gradient(180deg, ${C.washTop} 0%, ${C.washBase} 100%)`,
+        borderRight: `1px solid ${C.borderStrong}`,
+        boxShadow: "1px 0 0 rgba(169,131,46,0.10)",
       }}
     >
-      {/* Collapse toggle */}
+      {/* Collapse toggle — a paper tab bridging the dark cover and the cream content pane */}
       <button
         type="button"
         onClick={() => setCollapsed((c) => !c)}
@@ -121,10 +134,10 @@ export default function Sidebar({
         className="absolute top-5 w-7 h-7 rounded-full flex items-center justify-center active:scale-90 z-10"
         style={{
           right: -14,
-          background: C.bg,
-          border: `1px solid ${C.borderStrong}`,
-          color: C.t40,
-          boxShadow: "0 1px 3px rgba(31,42,26,0.12)",
+          background: C.cream,
+          border: `1px solid ${C.brass}`,
+          color: C.ink,
+          boxShadow: "0 1px 3px rgba(31,42,26,0.16)",
           transition: `right 0.25s ${EASE}, box-shadow 0.15s ${EASE}, color 0.15s ${EASE}, border-color 0.15s ${EASE}, transform 0.1s ${EASE}`,
         }}
       >
@@ -143,25 +156,28 @@ export default function Sidebar({
         type="button"
         onClick={onHome}
         title={collapsed ? "ReconMint, home" : undefined}
-        className="flex items-center gap-2.5 px-5 py-5 text-left hover:opacity-80 transition-opacity duration-150"
+        className="flex items-center gap-3 px-5 pt-6 pb-5 text-left hover:opacity-90 transition-opacity duration-150"
       >
         <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
-          style={{ background: C.ink }}
+          className="w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
+          style={{ background: C.ink, boxShadow: "0 1px 3px rgba(31,42,26,0.25)" }}
         >
-          <img src="/favicon.png" alt="ReconMint" className="w-5 h-5 object-contain" />
+          <img src="/favicon.png" alt="ReconMint" className="w-8 h-8 object-contain" />
         </div>
         <FadeLabel collapsed={collapsed} className="min-w-0 block">
-          <div className="font-bold text-[16px] tracking-tight leading-tight" style={{ color: C.ink, fontFamily: "'Special Elite', monospace" }}>
+          <div className="font-bold text-[20px] tracking-tight leading-tight" style={{ color: C.ink, fontFamily: "'Special Elite', monospace" }}>
             ReconMint
           </div>
-          <div className="text-[9px] uppercase tracking-[0.14em] mt-0.5" style={{ color: C.red }}>
+          <div className="text-[10px] uppercase tracking-[0.14em] mt-0.5" style={{ color: C.brass }}>
             Ledger No. 0412 RM
           </div>
         </FadeLabel>
       </button>
 
-      {/* Quick action, new reconciliation */}
+      {/* brass hairline, the cover's one seam */}
+      <div className="mx-5 mb-4" style={{ height: 1, background: `linear-gradient(90deg, ${C.brass} 0%, rgba(169,131,46,0) 85%)`, opacity: 0.5 }} />
+
+      {/* Quick action, new reconciliation — inverted paper tab against the dark cover */}
       <div className="px-3 mb-2">
         <button
           type="button"
@@ -171,7 +187,8 @@ export default function Sidebar({
           style={{
             padding: collapsed ? "10px 0" : "10px 12px",
             background: C.ink,
-            color: C.bg,
+            color: C.cream,
+            boxShadow: "0 1px 3px rgba(31,42,26,0.18)",
             transition: `transform 0.1s ${EASE}, background-color 0.15s ${EASE}`,
           }}
         >
@@ -207,7 +224,7 @@ export default function Sidebar({
                   className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-[3px] rounded-full text-[9px] font-bold flex items-center justify-center leading-none"
                   style={{
                     background: C.red,
-                    color: C.bg,
+                    color: C.cream,
                     opacity: collapsed && count > 0 ? 1 : 0,
                     transform: collapsed && count > 0 ? "scale(1)" : "scale(0)",
                     transition: `opacity 0.2s ${EASE}, transform 0.2s ${EASE}`,
@@ -230,8 +247,9 @@ export default function Sidebar({
                 <span
                   className="text-xs font-bold px-1.5 py-0.5 rounded-full"
                   style={{
-                    background: isActive ? "rgba(181,67,47,0.12)" : C.card,
+                    background: isActive ? "rgba(181,67,47,0.14)" : C.cream,
                     color: isActive ? C.redDeep : C.red,
+                    border: isActive ? "none" : `1px solid ${C.borderStrong}`,
                   }}
                 >
                   {count > 99 ? "99+" : count}
@@ -264,7 +282,7 @@ export default function Sidebar({
               maxLength={40}
               placeholder="Workspace name"
               className="min-w-0 flex-1 text-sm font-semibold bg-transparent focus:outline-none border-b"
-              style={{ color: C.ink, borderColor: C.red }}
+              style={{ color: C.ink, borderColor: C.brass }}
             />
           </div>
         ) : (
@@ -286,8 +304,8 @@ export default function Sidebar({
                   {workspaceName}
                 </div>
                 <i
-                  className="fa-solid fa-pen text-[9px] opacity-0 group-hover:opacity-60 transition-opacity duration-150 flex-shrink-0"
-                  style={{ color: C.t40 }}
+                  className="fa-solid fa-pen text-[9px] opacity-0 group-hover:opacity-70 transition-opacity duration-150 flex-shrink-0"
+                  style={{ color: C.brass }}
                 />
               </div>
               <div className="text-xs truncate" style={{ color: C.t40 }}>Workspace</div>
