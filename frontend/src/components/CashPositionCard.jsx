@@ -121,8 +121,7 @@ export default function CashPositionCard({ runId }) {
             <i className="fa-solid fa-scale-balanced text-xs"></i>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>
-              — Finance Controller
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>Finance Controller
             </div>
             <h2 className="text-[15px] font-semibold tracking-tight" style={{ color: C.ink }}>
               Cash position as of {as_of}

@@ -57,8 +57,7 @@ export default function FeeSlabCard({ runId }) {
   );
   if (!data.eligible) return (
     <div className="rounded-xl border p-6 font-mono" style={{ background: C.card, borderColor: C.border, color: C.softText }}>
-      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] mb-1" style={{ color: C.softText }}>
-        — Fee slab advice
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] mb-1" style={{ color: C.softText }}>Fee slab advice
       </div>
       {data.detail || "No gross-bearing settlements to analyze."}
     </div>
@@ -84,8 +83,7 @@ export default function FeeSlabCard({ runId }) {
             <i className="fa-solid fa-piggy-bank text-xs"></i>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>
-              — Fee slab advice
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>Fee slab advice
             </div>
             <h2 className="text-[15px] font-semibold tracking-tight" style={{ color: C.ink }}>
               Already on the lowest slab
@@ -123,8 +121,7 @@ export default function FeeSlabCard({ runId }) {
             <i className="fa-solid fa-piggy-bank text-xs"></i>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>
-              — Fee slab · revenue advice
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>Fee slab · revenue advice
             </div>
             <h2 className="text-[15px] font-semibold tracking-tight" style={{ color: C.ink }}>
               Ask sales about the {rec.target_slab.name} plan
@@ -225,7 +222,7 @@ export default function FeeSlabCard({ runId }) {
         {rec.phrase}
         {drift > 0.05 && (
           <div className="text-[10.5px] mt-1" style={{ color: C.softText }}>
-            Your observed MDR is <b>{drift.toFixed(2)}pp</b> above the target — verify no per-instrument
+            Your observed MDR is <b>{drift.toFixed(2)}pp</b> above the target, verify no per-instrument
             over-charge before renegotiating.
           </div>
         )}
@@ -234,7 +231,7 @@ export default function FeeSlabCard({ runId }) {
       <div className="mx-6 mb-5 p-3 rounded-lg text-[10px] italic border-l-2"
         style={{ borderColor: C.border, background: "rgba(31,42,26,0.03)", color: C.softText }}>
         Slab rates shown are illustrative reference points from Razorpay's published pricing tiers.
-        Actual pricing depends on payment method mix, volume commitment, and negotiation — this
+        Actual pricing depends on payment method mix, volume commitment, and negotiation, this
         card is decision support, not a quote. Annual projection = this batch × {multiplier}.
       </div>
     </div>

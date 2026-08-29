@@ -23,7 +23,7 @@ function inr(paise) {
 }
 
 function tsToDate(ts) {
-  if (!ts) return "—";
+  if (!ts) return "-";
   return new Date(ts * 1000).toLocaleString();
 }
 
@@ -50,8 +50,7 @@ export default function RazorpayVerificationCard({ runId }) {
   if (notFound) {
     return (
       <div className="rounded-xl border p-6 font-mono" style={{ background: C.card, borderColor: C.border, color: C.softText }}>
-        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] mb-1" style={{ color: C.softText }}>
-          — Razorpay API handshake
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] mb-1" style={{ color: C.softText }}>Razorpay API handshake
         </div>
         <p className="text-sm">
           No live handshake was recorded for this run. Set <span className="font-semibold" style={{ color: C.ink }}>RAZORPAY_KEY_ID</span> and
@@ -102,8 +101,7 @@ export default function RazorpayVerificationCard({ runId }) {
             <i className="fa-solid fa-shield-check text-xs"></i>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>
-              — Sponsor API handshake
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>Sponsor API handshake
             </div>
             <h2 className="text-[15px] font-semibold tracking-tight" style={{ color: C.ink }}>
               Live Razorpay API verification
@@ -124,15 +122,14 @@ export default function RazorpayVerificationCard({ runId }) {
         background: "rgba(31,42,26,0.03)", border: `1px dashed ${C.border}`, color: C.softText
       }}>
         At ingest, ReconMint calls the real Razorpay API to prove the pipeline is grounded in the
-        sponsor's live product. Auth uses your <span className="font-semibold" style={{ color: C.ink }}>RAZORPAY_KEY_ID</span>+<span className="font-semibold" style={{ color: C.ink }}>RAZORPAY_KEY_SECRET</span>.
-        We ask for 3 recent records; if the test account has no payments yet we transparently fall
+        sponsor's live product. Auth uses your <span className="font-semibold" style={{ color: C.ink }}>RAZORPAY_KEY_ID</span>+<span className="font-semibold" style={{ color: C.ink }}>RAZORPAY_KEY_SECRET</span>We ask for 3 recent records; if the test account has no payments yet we transparently fall
         back to Orders (they're the truth-anchor a merchant creates first). Every field below is
-        straight from Razorpay's response — nothing computed client-side.
+        straight from Razorpay's response, nothing computed client-side.
       </div>
 
       {/* wire-level metadata */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 px-6 pb-3">
-        <MetaCell label="HTTP" value={data.status_code || "—"} tone={ok ? "ok" : "err"} />
+        <MetaCell label="HTTP" value={data.status_code || "-"} tone={ok ? "ok" : "err"} />
         <MetaCell label="Latency" value={`${data.latency_ms} ms`} />
         <MetaCell label="Source" value={source} />
         <MetaCell label="Records" value={(data.payments || []).length} />
@@ -168,8 +165,8 @@ export default function RazorpayVerificationCard({ runId }) {
                   <tr key={p.id} className="border-t" style={{ borderColor: C.border }}>
                     <td className="py-2 px-3 font-medium" style={{ color: C.ink }}>{p.id}</td>
                     <td className="py-2 px-3 text-right tabular-nums" style={{ color: C.ink }}>{inr(p.amount_paise)}</td>
-                    <td className="py-2 px-3" style={{ color: C.softText }}>{p.status || "—"}</td>
-                    <td className="py-2 px-3" style={{ color: C.softText }}>{isOrders ? (p.receipt || "—") : (p.method || "—")}</td>
+                    <td className="py-2 px-3" style={{ color: C.softText }}>{p.status || "-"}</td>
+                    <td className="py-2 px-3" style={{ color: C.softText }}>{isOrders ? (p.receipt || "-") : (p.method || "-")}</td>
                     <td className="py-2 px-3" style={{ color: C.softText }}>{tsToDate(p.created_at)}</td>
                   </tr>
                 ))}
@@ -183,7 +180,7 @@ export default function RazorpayVerificationCard({ runId }) {
         <div className="mx-6 mb-5 p-3 rounded-lg text-[11px]" style={{
           background: "rgba(184,134,59,0.08)", border: `1px solid ${C.ochre}`, color: C.softText
         }}>
-          Handshake succeeded — but this Razorpay test account has no payments or orders yet.
+          Handshake succeeded, but this Razorpay test account has no payments or orders yet.
           The HTTP 200 + latency + request-id above still prove the keys and network path are live.
         </div>
       )}

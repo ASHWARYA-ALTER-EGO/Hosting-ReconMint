@@ -346,7 +346,7 @@ export default function UploadPanel({
             {done && (
               <div className="mt-5 flex items-center gap-2 text-xs font-medium text-teal-800 bg-teal-50/70 border border-teal-100 rounded-lg px-3 py-2 w-fit animate-[upnlFade_0.4s_ease-out]">
                 <i className="fa-solid fa-shield-halved text-teal-600"></i>
-                Every stage deterministic and audited — {runResult.decisions_logged} decisions logged.
+                Every stage deterministic and audited · {runResult.decisions_logged} decisions logged.
               </div>
             )}
           </div>

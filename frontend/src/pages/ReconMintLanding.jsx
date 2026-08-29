@@ -19,7 +19,9 @@ const YOUR_NAME = "Ashwarya Pradhan";
 const YOUR_GITHUB_URL = "https://github.com/pradhanashwarya2122";
 const YOUR_GITHUB_HANDLE = "@pradhanashwarya2122";
 const REPO_URL = "https://github.com/pradhanashwarya2122";
-const DEMO_VIDEO_ID = "dQw4w9WgXcQ";
+// Set to a real YouTube video ID once the pitch is recorded, e.g. "abc123DEF".
+// null = the "Watch demo" button is not rendered at all (safer than a placeholder).
+const DEMO_VIDEO_ID = null;
 
 const FONT_IMPORT_URL =
   "https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap";
@@ -739,7 +741,7 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
         }
       `}</style>
 
-      {videoOpen && <VideoModal videoId={DEMO_VIDEO_ID} onClose={() => setVideoOpen(false)} />}
+      {videoOpen && DEMO_VIDEO_ID && <VideoModal videoId={DEMO_VIDEO_ID} onClose={() => setVideoOpen(false)} />}
 
       <ProgressRail />
 
@@ -800,15 +802,37 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
           style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 44, padding: "60px 0 66px", alignItems: "center" }}
         >
           <div>
-            <Reveal delay={0} y={14}><Eyebrow color={STAMP_RED}>SETTLEMENT RECONCILIATION</Eyebrow></Reveal>
+            <Reveal delay={0} y={14}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, fontWeight: 700,
+                  letterSpacing: "0.14em", textTransform: "uppercase",
+                  background: "#3395FF", color: "#fff",
+                  padding: "4px 9px", borderRadius: 3,
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff", opacity: 0.9 }} />
+                  Built on Razorpay
+                </span>
+                <span style={{
+                  fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, fontWeight: 700,
+                  letterSpacing: "0.14em", textTransform: "uppercase",
+                  color: STAMP_RED, border: `1px solid ${STAMP_RED}`,
+                  padding: "3px 8px", borderRadius: 3,
+                }}>
+                  Buildathon · Track 4 · AI Finance Controller
+                </span>
+              </div>
+              <Eyebrow color={STAMP_RED}>SETTLEMENT RECONCILIATION</Eyebrow>
+            </Reveal>
             <Reveal delay={90} y={18}>
               <div style={{ fontFamily: "'Special Elite', monospace", fontSize: "clamp(18px, 2vw, 22px)", color: STAMP_RED, marginBottom: 6, letterSpacing: "0.01em" }}>
                 ReconMint
               </div>
               <h1 style={{ fontFamily: "'Special Elite', monospace", fontSize: "clamp(34px, 4.4vw, 50px)", lineHeight: 1.22, margin: "0 0 20px" }}>
-                A verification agent
+                An AI Finance Controller
                 <br />
-                for money.
+                for the books and the cash.
               </h1>
             </Reveal>
             <Reveal delay={190} y={18}>
@@ -820,7 +844,12 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
             <Reveal delay={280} y={14}>
               <div style={{ display: "flex", gap: 12, marginBottom: 26, flexWrap: "wrap" }}>
                 <LedgerButton primary big onClick={handleGetStarted}>Try the live demo</LedgerButton>
-                <LedgerButton big onClick={handleWatchDemo}>Watch the 2 min demo</LedgerButton>
+                {DEMO_VIDEO_ID && (
+                  <LedgerButton big onClick={handleWatchDemo}>Watch the 2 min demo</LedgerButton>
+                )}
+                <InkFillLink href={REPO_URL} extraStyle={{ fontSize: 13, padding: "10px 18px" }}>
+                  Read the code &nbsp;→
+                </InkFillLink>
               </div>
             </Reveal>
             <Reveal delay={360} y={10}>
@@ -966,21 +995,36 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
 
       <TornDivider flip />
 
-      {/* Feature highlights */}
+      {/* Feature highlights - covers every direction in the Track 4 brief */}
       <div style={{ maxWidth: 1180, margin: "0 auto", padding: "56px 46px" }} id="features">
         <Reveal delay={0}><Eyebrow color={CARBON_BLUE}>INSIDE THE PRODUCT</Eyebrow></Reveal>
         <Reveal delay={70}>
-          <h2 style={{ fontFamily: "'Special Elite', monospace", fontSize: 26, marginBottom: 30, maxWidth: 620 }}>
-            Six things worth clicking on.
+          <h2 style={{ fontFamily: "'Special Elite', monospace", fontSize: 26, marginBottom: 10, maxWidth: 720 }}>
+            Every direction in the Track&nbsp;4 brief, in one product.
           </h2>
         </Reveal>
+        <Reveal delay={130}>
+          <p style={{ color: INK_SOFT, maxWidth: 660, lineHeight: 1.7, marginBottom: 30, fontSize: 14 }}>
+            Multi-source reconciliation, settlement Q&amp;A, forward cash forecasting, tax-line
+            matching. Plus a live sponsor-API handshake, a per-record Repair Agent, and a
+            downstream artifact that closes the finance-ops loop.
+          </p>
+        </Reveal>
         <div className="rm-feature-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
-          <FeatureCard tag="LIVE" color={CARBON_BLUE} title="Live agent trace" body="Watch each reconciliation decision as it happens, with real per-stage latencies, not a spinner." delay={110} />
-          <FeatureCard tag="SCORED" color={VERIFY_GREEN} title="Detection accuracy" body="Precision 0.86, recall 1.00, F1 0.93 on exception detection, measured against a hidden answer key." delay={160} />
-          <FeatureCard tag="EXPLAINED" color={STAMP_RED} title="Exception drawer" body="Every flagged item opens into a fee bridge and a verified, plain English explanation." delay={210} />
-          <FeatureCard tag="ASK" color={CARBON_BLUE} title="Ask the agent" body="Question in, structured intent out, deterministic compute, verifier gated phrasing back." delay={260} />
-          <FeatureCard tag="SOURCE" color={VERIFY_GREEN} title="Source file viewer" body="Trace any figure back to the exact row in the order ledger, settlement, or bank statement." delay={310} />
-          <FeatureCard tag="EXPORT" color={STAMP_RED} title="One click report" body="A printable reconciliation report, generated from the same grounded numbers you already saw." delay={360} />
+          {/* Row 1 - the Track-4 named directions */}
+          <FeatureCard tag="CASH · NOW" color={VERIFY_GREEN} title="Cash Position, live" body="Four mutually exclusive buckets: Cleared, In-flight, At-risk, Ghost. Net Available headline the CFO can actually spend." delay={110} />
+          <FeatureCard tag="CASH · +7d" color={CARBON_BLUE} title="Forward Cash Forecast" body="Every in-flight settlement projected forward using the T+2 business-day rule. Past-due list surfaces automatically." delay={160} />
+          <FeatureCard tag="TAX" color={STAMP_RED} title="Tax-line Matcher" body="MDR, GST on MDR, TCS reconstructed against Razorpay's schedule. Recover vs Reserve exposure per record." delay={210} />
+
+          {/* Row 2 - the agent proof + revenue advice + sponsor grounding */}
+          <FeatureCard tag="AGENT" color={CARBON_BLUE} title="Repair Agent branching" body="Per record, three strategies tried in order. First winner accepts. Every attempt logged in the Decisions tree." delay={260} />
+          <FeatureCard tag="ADVICE" color={VERIFY_GREEN} title="Fee-slab recommendation" body="Reads observed MDR, compares against Razorpay slabs, projects annual savings. Turns audit into revenue advice." delay={310} />
+          <FeatureCard tag="SPONSOR" color={STAMP_RED} title="Live Razorpay handshake" body="At ingest we call api.razorpay.com/v1/orders with the test keys. Real IDs. Real X-Request-Id an auditor can quote." delay={360} />
+
+          {/* Row 3 - the loop-closing + verified Q&A + benchmark */}
+          <FeatureCard tag="LOOP" color={CARBON_BLUE} title="Adjustment memo · closes the loop" body="Resolve any exception and you get a printable HTML memo plus a JSON webhook payload naming the downstream target." delay={410} />
+          <FeatureCard tag="ASK" color={VERIFY_GREEN} title="Verified Q&A agent" body="Parse intent, compute deterministically, hallucination-verify every rupee, phrase the answer. Click 'Prove it' for the receipts." delay={460} />
+          <FeatureCard tag="SCALE" color={STAMP_RED} title="149,250 rows in 3.6 min" body="Stress benchmark on 1k / 10k / 50k row generations. 687 rec/s peak with full per-record agent branching enabled." delay={510} />
         </div>
       </div>
 

@@ -65,7 +65,7 @@ export default function Sidebar({
 }) {
   const [collapsed, setCollapsed] = useState(false);
 
-  // ── editable workspace name — user input instead of a hardcoded string ──
+  // ── editable workspace name, user input instead of a hardcoded string ──
   const [workspaceName, setWorkspaceName] = useState(() => {
     if (workspaceNameProp) return workspaceNameProp;
     try {
@@ -138,11 +138,11 @@ export default function Sidebar({
         />
       </button>
 
-      {/* Brand — ledger mark, echoes "LEDGER No." on the hero */}
+      {/* Brand, ledger mark, echoes "LEDGER No." on the hero */}
       <button
         type="button"
         onClick={onHome}
-        title={collapsed ? "ReconMint — home" : undefined}
+        title={collapsed ? "ReconMint, home" : undefined}
         className="flex items-center gap-2.5 px-5 py-5 text-left hover:opacity-80 transition-opacity duration-150"
       >
         <div
@@ -161,7 +161,7 @@ export default function Sidebar({
         </FadeLabel>
       </button>
 
-      {/* Quick action — new reconciliation */}
+      {/* Quick action, new reconciliation */}
       <div className="px-3 mb-2">
         <button
           type="button"
@@ -242,7 +242,7 @@ export default function Sidebar({
         })}
       </nav>
 
-      {/* Workspace footer — editable name, user input instead of hardcoded */}
+      {/* Workspace footer, editable name, user input instead of hardcoded */}
       <div className="px-3 py-4" style={{ borderTop: `1px solid ${C.border}` }}>
         {editing && !collapsed ? (
           <div className="flex items-center gap-2.5">

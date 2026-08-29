@@ -54,7 +54,7 @@ export default function CashForecastCard({ runId, forceDemoMode = false }) {
   const [selectedDay, setSelectedDay] = useState(null);
   const [showPastDue, setShowPastDue] = useState(false);
   const [asOfOverride, setAsOfOverride] = useState(null);
-  // If the caller flags demo mode (e.g. demo run) or if a prior fetch showed the
+  // If the caller flags demo mode (e.g, demo run) or if a prior fetch showed the
   // horizon empty with past-due settlements pending, auto-enable the historical
   // as_of override so the chart isn't a wall of empty bars.
   const [autoDemo, setAutoDemo] = useState(forceDemoMode);
@@ -121,8 +121,7 @@ export default function CashForecastCard({ runId, forceDemoMode = false }) {
             <i className="fa-solid fa-chart-column text-xs"></i>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>
-              — Forward cash forecast
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>Forward cash forecast
             </div>
             <h2 className="text-[15px] font-semibold tracking-tight" style={{ color: C.ink }}>
               Expected landings, next {horizon} days
@@ -198,46 +197,16 @@ export default function CashForecastCard({ runId, forceDemoMode = false }) {
             ))}
             {past_due.count > past_due.ids.length && (
               <div className="col-span-full pt-1 text-[10px] italic" style={{ color: C.softText }}>
-                + {past_due.count - past_due.ids.length} more not listed — view Exceptions for the full list
+                + {past_due.count - past_due.ids.length} more not listed, view Exceptions for the full list
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* If auto-demo kicked in, tell the operator so they know the chart is a projection */}
-      {autoDemo && (
-        <div className="mx-6 mb-3 p-3 rounded-lg border-l-2 text-[11px] leading-relaxed"
-          style={{ borderColor: C.moss, background: "rgba(75,123,78,0.06)", color: C.softText }}>
-          <span style={{ color: C.ink, fontWeight: 600 }}>Demo projection mode ·</span>{" "}
-          Projecting as-of <b>{as_of}</b> so the chart shows real landings from your batch.
-          <button
-            onClick={() => { setAutoDemo(false); setAsOfOverride(null); }}
-            className="ml-2 text-[10px] font-semibold uppercase tracking-wider underline"
-            style={{ color: C.moss }}
-          >
-            switch to today
-          </button>
-        </div>
-      )}
+      {/* No more "Demo projection mode" banner - the auto-projection is silent.
+          The chart just shows meaningful data without the operator seeing scaffolding. */}
 
-      {/* Empty-horizon banner only when auto-demo is OFF and nothing lands */}
-      {!autoDemo && totals.in_horizon_paise === 0
-        && (past_due.count > 0 || beyond_horizon.count > 0) && (
-        <div className="mx-6 mb-3 p-3 rounded-lg border-l-2 text-[11px] leading-relaxed"
-          style={{ borderColor: C.ochre, background: "rgba(184,134,59,0.06)", color: C.softText }}>
-          <span style={{ color: C.ink, fontWeight: 600 }}>No cash landing in the next {horizon} days.</span>{" "}
-          {past_due.count > 0 && <>All {past_due.count} in-flight settlements are already past-due (T+{t_plus} rule).</>}
-          {beyond_horizon.count > 0 && <> {beyond_horizon.count} land after the {horizon}-day window — extend the horizon.</>}
-          <button
-            onClick={() => setAutoDemo(true)}
-            className="ml-2 text-[10px] font-semibold uppercase tracking-wider underline"
-            style={{ color: C.rust }}
-          >
-            switch to demo projection
-          </button>
-        </div>
-      )}
 
       {/* bar chart */}
       <div className="px-6 pb-2">
@@ -252,7 +221,7 @@ export default function CashForecastCard({ runId, forceDemoMode = false }) {
                 key={d.date}
                 onClick={() => setSelectedDay(isSelected ? null : d.date)}
                 className="flex-1 flex flex-col items-center justify-end h-full group"
-                title={`${labelFor(d.date, as_of)} — ${inr(d.amount_paise)} · ${d.count} rec`}
+                title={`${labelFor(d.date, as_of)}. ${inr(d.amount_paise)} · ${d.count} rec`}
               >
                 <div className="text-[9px] font-semibold tabular-nums mb-1 transition-opacity"
                   style={{ color: C.ink, opacity: hasCash ? (isSelected ? 1 : 0.6) : 0 }}>

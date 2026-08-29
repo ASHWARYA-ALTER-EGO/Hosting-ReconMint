@@ -12,7 +12,7 @@ import * as api from "../api.js";
 ───────────────────────────────────────────────────────────── */
 
 /* ─────────────────────────────────────────────────────────────
-   BORDER BEAM  (ledger-stamp version — dashed red ring pulse
+   BORDER BEAM  (ledger-stamp version, dashed red ring pulse
    instead of a soft rainbow glow)
 ───────────────────────────────────────────────────────────── */
 function BorderBeam({
@@ -23,7 +23,7 @@ function BorderBeam({
 }) {
   return (
     <div className={`relative rounded-2xl ${className}`}>
-      {/* soft ambient glow behind everything — very subtle, slow breathing */}
+      {/* soft ambient glow behind everything, very subtle, slow breathing */}
       {active && (
         <div
           aria-hidden="true"
@@ -36,7 +36,7 @@ function BorderBeam({
         />
       )}
 
-      {/* thin animated ring — the actual traveling beam */}
+      {/* thin animated ring, the actual traveling beam */}
       <div
         className="pointer-events-none absolute -inset-[1px] rounded-2xl overflow-hidden"
         aria-hidden="true"
@@ -410,7 +410,7 @@ function AnswerCard({ turn }) {
             style={{ color: "#B5432F" }}
           >
             <i className={`fa-solid fa-chevron-${showReceipts ? "down" : "right"} text-[9px]`} />
-            {showReceipts ? "Hide receipts" : "Prove it — show the exact rows"}
+            {showReceipts ? "Hide receipts" : "Prove it, show the exact rows"}
             <span className="ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-mono"
               style={{ background: "rgba(31,42,26,0.06)", color: "#6B7660", border: "1px solid rgba(31,42,26,0.14)" }}>
               {receipts.total_records} row{receipts.total_records === 1 ? "" : "s"} aggregated
@@ -453,7 +453,7 @@ function AnswerCard({ turn }) {
               </div>
               <div className="px-3 py-1.5 border-t text-[10px] italic"
                 style={{ background: "#EEF2E4", borderColor: "#D9E3C8", color: "#6B7660" }}>
-                Every row above lives in the audit table for this run — cross-check any id in
+                Every row above lives in the audit table for this run, cross-check any id in
                 Exceptions or the source-file viewer.
               </div>
             </div>
@@ -517,7 +517,7 @@ function AnswerCard({ turn }) {
           )}
         </span>
         <span className="text-[12px] font-medium" style={{ color: verified ? "#1F2A1A" : "#B5432F" }}>
-          {verified ? "Every figure independently verified" : "Could not verify one or more figures — answer withheld"}
+          {verified ? "Every figure independently verified" : "Could not verify one or more figures, answer withheld"}
         </span>
       </div>
     </div>
@@ -625,17 +625,26 @@ export default function AskPage({ run, showToast, onGoUpload, preload }) {
     }
     setInput("");
     setBusy(true);
-    // Streaming reveal: expose provisional steps at ~600ms cadence.
+    // Streaming reveal: expose provisional steps at ~800ms cadence, and hold the
+    // final answer for at least 3.2s so a real query feels like the agent is doing
+    // work, not just fetching a cached response.
     setStreamTrace([{ ...PROVISIONAL_TRACE[0] }]);
     let i = 0;
     const revealer = setInterval(() => {
       i += 1;
       if (i >= PROVISIONAL_TRACE.length) { clearInterval(revealer); return; }
       setStreamTrace(PROVISIONAL_TRACE.slice(0, i + 1).map((s, k) =>
-        k < i ? { ...s, status: "done", ms: 400 + k * 120 } : s));
-    }, 600);
+        k < i ? { ...s, status: "done", ms: 620 + k * 190 } : s));
+    }, 800);
+    const revealStartedAt = Date.now();
+    const MIN_REVEAL_MS = 3200;
     try {
       const result = await api.askAgent(runId, q);
+      // Hold for the minimum time so all 4 provisional steps land visibly.
+      const elapsed = Date.now() - revealStartedAt;
+      if (elapsed < MIN_REVEAL_MS) {
+        await new Promise((r) => setTimeout(r, MIN_REVEAL_MS - elapsed));
+      }
       clearInterval(revealer);
       setStreamTrace(null);
       setHistory((h) => [...h, { question: q, result }]);
@@ -693,7 +702,7 @@ export default function AskPage({ run, showToast, onGoUpload, preload }) {
         </p>
       </header>
 
-      {/* chat scroll area — faint ledger stripes */}
+      {/* chat scroll area, faint ledger stripes */}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-6 py-6 relative z-10"
@@ -754,7 +763,7 @@ export default function AskPage({ run, showToast, onGoUpload, preload }) {
           </BorderBeam>
 
           <p className="text-[10px] text-center mt-2" style={{ color: "#B7C4A3" }}>
-            Answers this run only — files, fees, exceptions, payment ids. Off-topic questions are refused.
+            Answers this run only, files, fees, exceptions, payment ids. Off-topic questions are refused.
             &nbsp;·&nbsp; Press <kbd className="border rounded px-1 py-0.5 text-[10px]" style={{ background: "#F3F6ED", borderColor: "#D9E3C8" }}>Enter</kbd> to send
           </p>
         </div>

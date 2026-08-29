@@ -28,7 +28,7 @@ const STRATEGY_ICON = {
 };
 
 const STRATEGY_WHY = {
-  amount_utr_fuzzy:  "Tight amount + date + UTR similarity scoring — the standard fuzzy pass.",
+  amount_utr_fuzzy:  "Tight amount + date + UTR similarity scoring, the standard fuzzy pass.",
   normalize_utr:     "Uppercase, strip punctuation, retry an exact amount + UTR match. Catches 'UTR-999 999/01' vs 'UTR99999901'.",
   widen_date_window: "Keep amount paise-exact but relax T+ to ±7 days. Catches late bank credits.",
 };
@@ -61,8 +61,7 @@ export default function RepairAgentCard({ meta }) {
             )}
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>
-              — Repair Agent · per-record branching
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>Repair Agent · per-record branching
             </div>
             <h2 className="text-[15px] font-semibold tracking-tight" style={{ color: C.ink }}>
               What the agent tried, per unmatched settlement
@@ -82,16 +81,19 @@ export default function RepairAgentCard({ meta }) {
 
       <p className="px-6 text-[11px] leading-relaxed pb-3" style={{ color: C.softText }}>
         For every settlement that survived the exact + fuzzy passes, the agent tries three
-        deterministic <span className="italic">repair strategies</span> in order — first winner
+        deterministic <span className="italic">repair strategies</span> in order, first winner
         accepts, all attempts are logged. Open any exception's <span className="font-semibold" style={{ color: C.ink }}>Decisions</span> tab to
         see the tree for that specific record.
       </p>
 
       {idle ? (
-        <div className="mx-6 mb-6 p-4 rounded-lg text-[12px] flex items-center gap-3"
+        <div className="mx-6 mb-6 p-4 rounded-lg text-[12px] flex items-start gap-3"
           style={{ background: "rgba(75,123,78,0.06)", border: `1px solid ${C.moss}`, color: C.softText }}>
-          <i className="fa-solid fa-check text-[13px]" style={{ color: C.moss }} />
-          Repair Agent idle this run — nothing survived the exact + fuzzy passes for it to work on.
+          <i className="fa-solid fa-check-double text-[14px] mt-0.5" style={{ color: C.moss }} />
+          <div>
+            <div className="font-semibold" style={{ color: C.ink }}>Clean batch. Repair Agent had nothing to do</div>
+            <div className="mt-0.5">Every settlement matched at either the exact or fuzzy pass, so no record survived to trigger repair branching. Upload the <span className="font-semibold">high variation</span> or <span className="font-semibold">messy</span> TEST folder to see the agent actively try strategies per record.</div>
+          </div>
         </div>
       ) : (
         <>
@@ -151,7 +153,7 @@ export default function RepairAgentCard({ meta }) {
           <div className="mx-6 mb-5 p-3 rounded-lg text-[10.5px] border-l-2" style={{
             borderColor: C.rust, background: "rgba(31,42,26,0.03)", color: C.softText,
           }}>
-            Every attempt is stored in the audit table as <span className="font-semibold" style={{ color: C.ink }}>strategy_attempts_json</span> —
+            Every attempt is stored in the audit table as <span className="font-semibold" style={{ color: C.ink }}>strategy_attempts_json</span> -
             the drawer's Decisions tab replays the tree per record. Nothing here is theatre; a real branching engine
             drove real per-payment choices.
           </div>

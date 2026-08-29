@@ -97,8 +97,7 @@ export default function TaxExposureCard({ runId }) {
             <i className="fa-solid fa-file-invoice-dollar text-xs"></i>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>
-              — Tax-line matcher
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>Tax-line matcher
             </div>
             <h2 className="text-[15px] font-semibold tracking-tight" style={{ color: C.ink }}>
               Tax exposure this batch
@@ -151,7 +150,7 @@ export default function TaxExposureCard({ runId }) {
           const paise = agg[t.key] || 0;
           const observed = perLineRate(paise);
           const expected = rates[t.expectedField];
-          // GST is 18% of MDR (not of gross) — display observed as % of MDR so drift is meaningful
+          // GST is 18% of MDR (not of gross). display observed as % of MDR so drift is meaningful
           const observedForDisplay = t.key === "gst"
             ? (agg.mdr > 0 ? (paise / agg.mdr) * 100 : 0)
             : observed;
@@ -237,7 +236,7 @@ export default function TaxExposureCard({ runId }) {
                   return (
                     <tr key={a.payment_id} className="border-t" style={{ borderColor: C.border }}>
                       <td className="py-2 px-3 font-medium" style={{ color: C.ink }}>{a.payment_id}</td>
-                      <td className="py-2 px-3" style={{ color: C.softText }}>{a.date || "—"}</td>
+                      <td className="py-2 px-3" style={{ color: C.softText }}>{a.date || "-"}</td>
                       <td className="py-2 px-3 text-right tabular-nums" style={{ color: C.ink }}>{inr(a.gross_paise)}</td>
                       <td className="py-2 px-3 text-right tabular-nums" style={{ color: C.softText }}>{inr(a.expected_net_paise)}</td>
                       <td className="py-2 px-3 text-right tabular-nums" style={{ color: C.softText }}>{inr(a.actual_net_paise)}</td>

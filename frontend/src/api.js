@@ -66,7 +66,7 @@ function mapException(d) {
   return {
     decisionId: d.id,
     id: d.record_ref,
-    date: d.date || "—",
+    date: d.date || "-",
     amount: d.amount_rupees,
     category: categoryFromReason(d.reason),
     severity: SEVERITY_UI[d.severity] || "Info",
@@ -105,7 +105,7 @@ async function req(path, opts = {}) {
   if (!res.ok) {
     if (res.status === 405) {
       throw new Error(
-        "HTTP 405 — API request hit the frontend server, not the backend. " +
+        "HTTP 405 · API request hit the frontend server, not the backend. " +
           "On Railway: set BACKEND_URL on the frontend service to your backend URL and redeploy " +
           "(or set VITE_API_BASE_URL at build time to the backend URL)."
       );

@@ -17,7 +17,7 @@ import * as XLSX from "xlsx";
  *  - focusRow        number   1-based row number to scroll to + highlight
  *  - focusColumn     string|number  column letter ("C") or 0-based index to highlight
  *  - focusToken      any      change this value to re-trigger the focus jump/pulse
- *                              even if focusRow/focusColumn are unchanged (e.g. clicking
+ *                              even if focusRow/focusColumn are unchanged (e.g, clicking
  *                              the same cell reference twice in a row)
  *  - onFocusHandled  fn       optional callback fired once the jump/pulse has run
  * ------------------------------------------------------------------
@@ -108,7 +108,7 @@ function EmptyPanel({ onUploadClick, allowUpload, loading, error }) {
           <i className="fa-solid fa-file-excel text-3xl text-emerald-400/70 mb-3"></i>
           <p className="text-sm font-medium text-slate-600 mb-1">No file loaded</p>
           <p className="text-xs text-slate-400 mb-5 max-w-xs">
-            Preview the bank statement or ledger behind this run — upload an XLSX / CSV file.
+            Preview the bank statement or ledger behind this run, upload an XLSX / CSV file.
           </p>
         </>
       )}
@@ -133,7 +133,7 @@ export default function ExcelViewerCard({
   height = 420,
   focusRow = null,
   focusColumn = null,
-  focusRowId = null,      // string — search the sheet for this value and jump to that row
+  focusRowId = null,      // string, search the sheet for this value and jump to that row
   focusToken = null,
   onFocusHandled,
 }) {
@@ -151,7 +151,7 @@ export default function ExcelViewerCard({
   const [rawBuffer, setRawBuffer] = useState(null);
 
   // Selection state: the cell the user clicked, or the one we jumped to via focusRow/focusColumn.
-  const [selected, setSelected] = useState(null); // { row, col } — row is 0-based data row
+  const [selected, setSelected] = useState(null); // { row, col }. row is 0-based data row
   const [pulseKey, setPulseKey] = useState(0); // bump to replay the pulse animation
   const [hoveredCell, setHoveredCell] = useState(null); // { row, col }
 
@@ -258,7 +258,7 @@ export default function ExcelViewerCard({
   useEffect(() => {
     if (!workbook) return;
     let rowIdx = null;
-    // Prefer a text ID search when provided — this is what the exceptions/dashboard
+    // Prefer a text ID search when provided, this is what the exceptions/dashboard
     // "Open in source file" flow uses: pass the payment id, find the row that contains it.
     if (focusRowId !== null && focusRowId !== undefined && String(focusRowId).length) {
       const needle = String(focusRowId).trim().toLowerCase();

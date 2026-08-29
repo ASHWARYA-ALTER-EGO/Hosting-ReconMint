@@ -8,12 +8,13 @@ import CashForecastCard from "../components/CashForecastCard.jsx";
 import TaxExposureCard from "../components/TaxExposureCard.jsx";
 import QualitySignalsCard from "../components/QualitySignalsCard.jsx";
 import RazorpayVerificationCard from "../components/RazorpayVerificationCard.jsx";
+import RazorpayVerificationBar from "../components/RazorpayVerificationBar.jsx";
 import RepairAgentCard from "../components/RepairAgentCard.jsx";
 import FeeSlabCard from "../components/FeeSlabCard.jsx";
 import BenchmarkChip from "../components/BenchmarkChip.jsx";
 import { openReport } from "../report.js";
 
-/* ————————————————————————————————————————————————
+/* ------------------------------------------------
    RECONMINT PALETTE
    ink     #1F2A1A   text / primary fill
    red     #B5432F   brand accent / negative / stamp
@@ -26,7 +27,7 @@ import { openReport } from "../report.js";
    cream   #FBFBF3   card surface
    ink-60  #6B7660   secondary text
    ink-40  #8A9478   tertiary text / labels
-   ———————————————————————————————————————————————— */
+   -----------------------------------------------· */
 const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 const PRESS = "transition-transform duration-150 active:scale-[0.97] touch-manipulation";
 
@@ -45,9 +46,9 @@ const C = {
 };
 
 /**
- * PremiumCard — ledger-sheet hover treatment: a soft ink/red spotlight that
+ * PremiumCard, ledger-sheet hover treatment: a soft ink/red spotlight that
  * tracks the cursor, a lift, a sharpened shadow, and a punched "hole" corner
- * mark instead of a plain rounded box — nods to the stamp/ledger identity
+ * mark instead of a plain rounded box, nods to the stamp/ledger identity
  * without repeating literal stripes on every surface.
  */
 function PremiumCard({ children, className = "", style = {}, as: Tag = "div", punch = false, ...rest }) {
@@ -91,7 +92,7 @@ function PremiumCard({ children, className = "", style = {}, as: Tag = "div", pu
       }}
       {...rest}
     >
-      {/* cursor-tracking spotlight — ink/red instead of indigo */}
+      {/* cursor-tracking spotlight, ink/red instead of indigo */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300"
@@ -109,7 +110,7 @@ function PremiumCard({ children, className = "", style = {}, as: Tag = "div", pu
           transitionTimingFunction: EASE,
         }}
       />
-      {/* punched corner hole — ledger motif, used sparingly */}
+      {/* punched corner hole, ledger motif, used sparingly */}
       {punch && (
         <span
           aria-hidden="true"
@@ -331,16 +332,16 @@ function AccuracyCard({ acc, onFirstInteract }) {
   );
 }
 
-/* Plain-language meaning for each breakdown bucket — shown on hover/tap. */
+/* Plain-language meaning for each breakdown bucket, shown on hover/tap. */
 const SEGMENT_EXPLANATIONS = {
   "Auto Matched (Exact)": "Matched automatically because every key field agreed exactly across both ledgers. No review needed.",
   "Fuzzy Matched (AI)": "No exact match existed, so the AI matcher paired these on high-confidence similarity (amount, narration, timing).",
-  "Fee Anomaly": "Matched, but the fee charged doesn't line up with the expected fee schedule — worth a second look.",
+  "Fee Anomaly": "Matched, but the fee charged doesn't line up with the expected fee schedule, worth a second look.",
   "Unresolved": "No confident match on either side. These need manual review in the exceptions queue.",
   Duplicates: "Duplicate entries detected in the source data and excluded before matching.",
-  "Ghost Credits": "Credits that appear on the bank statement with no corresponding source record — flagged for investigation.",
+  "Ghost Credits": "Credits that appear on the bank statement with no corresponding source record, flagged for investigation.",
   Reconciled: "Successfully matched between the source ledger and the bank statement.",
-  Exceptions: "Couldn't be confidently matched — routed to the exceptions queue for manual review.",
+  Exceptions: "Couldn't be confidently matched, routed to the exceptions queue for manual review.",
 };
 
 const SEGMENT_COLORS = {
@@ -392,7 +393,7 @@ function StackedBreakdown({ segments, total, onFirstInteract }) {
         ))}
       </div>
 
-      {/* Explain-on-hover panel — receipt-style dashed border instead of solid */}
+      {/* Explain-on-hover panel, receipt-style dashed border instead of solid */}
       <div
         className="grid transition-[grid-template-rows] duration-300 mb-2"
         style={{ gridTemplateRows: activeSeg ? "1fr" : "0fr", transitionTimingFunction: EASE }}
@@ -408,7 +409,7 @@ function StackedBreakdown({ segments, total, onFirstInteract }) {
             <span className="w-2.5 h-2.5 rounded-full mt-0.5 shrink-0" style={{ background: activeSeg?.hex }}></span>
             <div>
               <span className="font-semibold" style={{ color: C.ink }}>{activeSeg?.label}</span>{" "}
-              <span style={{ color: C.t60 }}>— {activeSeg && (SEGMENT_EXPLANATIONS[activeSeg.label] || "Part of this run's reconciliation breakdown.")}</span>
+              <span style={{ color: C.t60 }}>· {activeSeg && (SEGMENT_EXPLANATIONS[activeSeg.label] || "Part of this run's reconciliation breakdown.")}</span>
             </div>
           </div>
         </div>
@@ -469,7 +470,7 @@ function buildWaterfall(bd) {
 }
 
 /**
- * Self-contained waterfall bar + tooltip — fully inline, scoped to itself.
+ * Self-contained waterfall bar + tooltip, fully inline, scoped to itself.
  * Bars carry a small dashed "ledger stitch" connector between steps,
  * reinforcing the paper-trail motif without a striped background.
  */
@@ -646,10 +647,10 @@ function HeaderButton({ onClick, icon, label }) {
 }
 
 /**
- * FeeInsightsCard — sits alongside FeeDonut. The donut shows distribution
+ * FeeInsightsCard, sits alongside FeeDonut. The donut shows distribution
  * across fee types; this shows impact: total deducted, % of settlement,
  * the single biggest fee category, and a nudge into anomalies if any exist.
- * Pure derived-data view — no new endpoints, reuses meta already on `run`.
+ * Pure derived-data view, no new endpoints, reuses meta already on `run`.
  */
 function FeeInsightsCard({ feeTotalsPaise, reconciledAmountPaise, anomalyCount }) {
   const entries = Object.entries(feeTotalsPaise || {}).filter(([, v]) => v > 0);
@@ -681,7 +682,7 @@ function FeeInsightsCard({ feeTotalsPaise, reconciledAmountPaise, anomalyCount }
         <div className="flex items-center justify-between text-xs rounded-md p-3 border mb-3" style={{ background: C.bg, borderColor: C.border }}>
           <span style={{ color: C.t60 }}>Largest fee category</span>
           <span className="font-semibold" style={{ color: C.ink }}>
-            {largest[0]} — {formatINR(largest[1] / 100)}
+            {largest[0]}. {formatINR(largest[1] / 100)}
           </span>
         </div>
       ) : (
@@ -694,7 +695,7 @@ function FeeInsightsCard({ feeTotalsPaise, reconciledAmountPaise, anomalyCount }
         <div className="flex items-center gap-2.5 text-xs rounded-md p-3 border" style={{ borderColor: C.ochre, background: "rgba(184,134,59,0.08)" }}>
           <i className="fa-solid fa-triangle-exclamation" style={{ color: C.ochre }}></i>
           <span style={{ color: C.t60 }}>
-            <span className="font-semibold" style={{ color: C.ochre }}>{anomalyCount}</span> fee anomal{anomalyCount === 1 ? "y" : "ies"} detected — worth a review.
+            <span className="font-semibold" style={{ color: C.ochre }}>{anomalyCount}</span> fee anomal{anomalyCount === 1 ? "y" : "ies"} detected, worth a review.
           </span>
         </div>
       )}
@@ -746,7 +747,7 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
         }
       `}</style>
 
-      {/* faint paper grain instead of stripes — a fixed dot-grid, barely-there */}
+      {/* faint paper grain instead of stripes, a fixed dot-grid, barely-there */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 opacity-[0.35]"
@@ -774,7 +775,7 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
             </span>
             <InfoHint
               hintKey="dash_title_hint_dismissed_v1"
-              message="Hover any card, chart segment, or bar to see what it means — accuracy stats, breakdown buckets, and the waterfall all explain themselves."
+              message="Hover any card, chart segment, or bar to see what it means, accuracy stats, breakdown buckets, and the waterfall all explain themselves."
             />
           </div>
           <div className="mt-2"><BenchmarkChip /></div>
@@ -786,6 +787,10 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
               </>
             )}
             <span>Run ID: {run.runId}</span>
+            <span>•</span>
+            <span>Reconciled in <b style={{ color: C.ink }}>{m.elapsed_seconds}s</b></span>
+            <span>•</span>
+            <span>{m.settlement_active} records · {m.exceptions_total} exceptions</span>
           </div>
         </div>
         <div className="flex items-center gap-2.5">
@@ -806,14 +811,14 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
       <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
         {/* Always-on metric strip - the operator's landing view. */}
         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-          <MetricCard title="Match Rate" subtitle="(Reconciled)" value={`${m.reconciled_rate_pct}%`} numeric={m.reconciled_rate_pct} footnote={`${m.match_rate_pct}% matched (incl. fuzzy)`} delay={0} />
+          <MetricCard title="Match Rate" subtitle="(Reconciled)" value={`${m.reconciled_rate_pct}%`} numeric={m.reconciled_rate_pct} footnote={`${m.match_rate_pct}% matched (incl, fuzzy)`} delay={0} />
           <MetricCard title="Records Processed" value={`${m.settlement_active}`} numeric={m.settlement_active} footnote={`${m.dataset_size} rows ingested`} delay={40} />
           <MetricCard title="Processing Time" value={`${m.elapsed_seconds}s`} numeric={m.elapsed_seconds} footnote={`Throughput: ${Math.round(m.throughput_rps).toLocaleString("en-IN")} rec/s`} delay={80} />
           <MetricCard title="Amount Reconciled" value={amount} footnote="net settled, verified" delay={120} />
           <MetricCard title="Exceptions" subtitle="(Needs review)" value={`${m.exceptions_total}`} numeric={m.exceptions_total} footnote={`${exceptionsPct}% of records`} tone="negative" delay={160} />
         </section>
 
-        {/* Tabbed body — kills scroll fatigue by grouping cards by intent. */}
+        {/* Tabbed body, kills scroll fatigue by grouping cards by intent. */}
         <DashboardTabs
           run={run}
           m={m}
@@ -828,7 +833,7 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
 }
 
 /**
- * DashboardTabs — three lanes: Cash · Reconciliation · Audit.
+ * DashboardTabs, three lanes: Cash · Reconciliation · Audit.
  * Each lane renders its cards lazily; only the active lane mounts.
  */
 function DashboardTabs({ run, m, evalData, segments, bdTotal, onFirstInteract }) {
@@ -871,7 +876,7 @@ function DashboardTabs({ run, m, evalData, segments, bdTotal, onFirstInteract })
         </span>
       </div>
 
-      {/* Cash lane — the Finance Controller view. */}
+      {/* Cash lane, the Finance Controller view. */}
       {tab === "cash" && (
         <div className="space-y-6">
           <section className="dash-section"><CashPositionCard runId={run.runId} /></section>
@@ -887,7 +892,7 @@ function DashboardTabs({ run, m, evalData, segments, bdTotal, onFirstInteract })
         </div>
       )}
 
-      {/* Reconciliation lane — how the numbers were arrived at. */}
+      {/* Reconciliation lane, how the numbers were arrived at. */}
       {tab === "recon" && (
         <div className="space-y-6">
           <section className="dash-section">
@@ -905,19 +910,19 @@ function DashboardTabs({ run, m, evalData, segments, bdTotal, onFirstInteract })
         </div>
       )}
 
-      {/* Audit lane — proof and trust. */}
+      {/* Audit lane, proof and trust. Slimmed: sponsor API is a dismissible bar, not a card. */}
       {tab === "audit" && (
         <div className="space-y-6">
-          <section className="dash-section"><RazorpayVerificationCard runId={run.runId} /></section>
+          <RazorpayVerificationBar runId={run.runId} />
           {evalData?.accuracy && (
-            <section className="dash-section" style={{ animationDelay: "40ms" }}>
+            <section className="dash-section">
               <AccuracyCard acc={evalData.accuracy} onFirstInteract={onFirstInteract} />
             </section>
           )}
-          <section className="dash-section" style={{ animationDelay: "60ms" }}>
+          <section className="dash-section" style={{ animationDelay: "40ms" }}>
             <QualitySignalsCard runId={run.runId} />
           </section>
-          <section className="dash-section" style={{ animationDelay: "100ms" }}>
+          <section className="dash-section" style={{ animationDelay: "80ms" }}>
             <FooterStrip meta={m} />
           </section>
         </div>

@@ -6,13 +6,13 @@ import SourceFilesCard from "../components/SourceFilesCard.jsx";
 const PAGE_SIZE = 8;
 
 /* ── Ledger theme tokens ───────────────────────────────────────────
-   ink      #2b3527  (dark forest green — body text, headings)
-   accent   #b5452f  (brick/terracotta red — stamps, criticals, links)
+   ink      #2b3527  (dark forest green, body text, headings)
+   accent   #b5452f  (brick/terracotta red, stamps, criticals, links)
    stripeA  #eef2e8  (light sage stripe)
    stripeB  #dde6d3  (darker sage stripe)
    paper    #f6f4ea  (cream panel base)
    line     #c7d1bc  (hairline rule)
-   amber    #a8791f  (warning ink, muted mustard — stays in-family)
+   amber    #a8791f  (warning ink, muted mustard, stays in-family)
 ──────────────────────────────────────────────────────────────────── */
 
 const SEV_LABEL = { Critical: "CRITICAL", Warning: "WARNING", Info: "INFO" };
@@ -87,7 +87,7 @@ const PLAYBOOK = {
     ],
   },
   Other: {
-    cause: "This exception doesn't fit a standard pattern — manual review recommended.",
+    cause: "This exception doesn't fit a standard pattern, manual review recommended.",
     steps: [
       "Read the explanation in the Explain tab for context",
       "Cross-check the ledger figures against the source files",
@@ -103,7 +103,7 @@ const RESOLUTION_REASONS = [
   { id: "escalated", label: "Escalated to finance", icon: "fa-flag" },
 ];
 
-/* Hole-punch rail — the ruled-paper margin motif from the reference page */
+/* Hole-punch rail, the ruled-paper margin motif from the reference page */
 function PunchRail({ side = "left" }) {
   return (
     <div
@@ -136,7 +136,7 @@ function EmptyState({ onGoUpload }) {
 }
 
 function ConfidenceBar({ value }) {
-  if (!value && value !== 0) return <span className="text-[#9aa590]">—</span>;
+  if (!value && value !== 0) return <span className="text-[#9aa590]">-</span>;
   const color = value >= 90 ? "bg-[#4a5d3f]" : value >= 70 ? "bg-[#a8791f]" : "bg-[#b5452f]";
   return (
     <div className="flex items-center gap-2 min-w-[72px]">
@@ -421,9 +421,8 @@ function DecisionsTree({ item }) {
         style={{ borderColor: accepted ? "#4a5d3f" : "#b5452f",
                  background: "rgba(43,53,39,0.03)", color: "#5c6b52" }}>
         {accepted
-          ? <>Result: recovered via <span className="font-semibold text-[#2b3527]">{STRATEGY_META[accepted]?.label || accepted}</span>.
-              Every attempt above is persisted in <span className="font-mono">strategy_attempts_json</span> on this decision row.</>
-          : <>Result: no strategy cleared threshold — record flagged for human review.
+          ? <>Result: recovered via <span className="font-semibold text-[#2b3527]">{STRATEGY_META[accepted]?.label || accepted}</span>Every attempt above is persisted in <span className="font-mono">strategy_attempts_json</span> on this decision row.</>
+          : <>Result: no strategy cleared threshold, record flagged for human review.
               The full attempt tree is preserved for audit.</>
         }
       </div>
@@ -589,7 +588,7 @@ function Drawer({ item, onClose, onResolve, resolving, onExplain, explaining, sh
                 <div className="text-[#5c6b52] font-bold">Category</div><div className="text-[#2b3527] text-right font-bold">{item.category}</div>
                 <div className="text-[#5c6b52] font-bold">Date</div><div className="text-[#2b3527] text-right font-medium">{item.date}</div>
                 <div className="text-[#5c6b52] font-bold">Match</div>
-                <div className="text-[#2b3527] text-right font-medium">{item.matchMethod || "—"}{item.confidence ? ` (${item.confidence}%)` : ""}</div>
+                <div className="text-[#2b3527] text-right font-medium">{item.matchMethod || "-"}{item.confidence ? ` (${item.confidence}%)` : ""}</div>
                 <div className="text-[#5c6b52] font-bold">Amount</div><div className="text-[#2b3527] text-right font-bold text-base tabular-nums">{api.formatINR(item.amount)}</div>
               </div>
 
@@ -948,7 +947,7 @@ export default function ExceptionsPage({ run, showToast, onGoUpload, onAskAbout 
         <header className="mb-6 flex justify-between items-start">
           <div className="relative">
             <div className="flex items-center gap-2 text-[10px] font-bold text-[#b5452f] uppercase tracking-[0.15em] mb-1.5">
-              <span>— Reconciliation Ledger, Exceptions</span>
+              <span>· Reconciliation Ledger, Exceptions</span>
             </div>
             <div className="flex items-center space-x-2.5 mb-1">
               <h1 className="text-3xl font-bold text-[#2b3527] tracking-tight">Exceptions</h1>
@@ -1015,7 +1014,7 @@ export default function ExceptionsPage({ run, showToast, onGoUpload, onAskAbout 
             ) : filtered.length === 0 ? (
               <div className="p-16 text-center text-[#9aa590] animate-[fadeIn_.3s_ease]">
                 <i className="fa-regular fa-circle-check text-3xl mb-3 text-[#4a5d3f]"></i>
-                <p className="text-sm font-bold">Nothing here — no matching exceptions.</p>
+                <p className="text-sm font-bold">Nothing here, no matching exceptions.</p>
               </div>
             ) : (
               <table className="w-full text-left border-collapse min-w-[820px]">
@@ -1040,7 +1039,7 @@ export default function ExceptionsPage({ run, showToast, onGoUpload, onAskAbout 
                       <td className="py-4 px-6 text-right font-bold text-[#2b3527] tabular-nums cursor-pointer hover:bg-[#eef2e8]/60 transition-colors" onClick={(ev) => onCellClick(ev, e, "amount")}>{Number(e.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                       <td className="py-4 px-6 cursor-pointer hover:bg-[#eef2e8]/60 transition-colors" onClick={(ev) => onCellClick(ev, e, "category")}><span className={`inline-flex px-2.5 py-1 text-xs font-bold border ${CAT_CHIP[e.category] || CAT_CHIP.Other}`}>{e.category}</span></td>
                       <td className="py-4 px-6 cursor-pointer hover:bg-[#eef2e8]/60 transition-colors" onClick={(ev) => onCellClick(ev, e, "severity")}><div className="flex items-center gap-2"><span className={`w-2 h-2 ${SEV_MARK[e.severity]}`}></span><span className="text-[#2b3527] font-bold text-xs uppercase tracking-wide">{e.severity}</span></div></td>
-                      <td className="py-4 px-6 text-[#5c6b52] font-medium cursor-pointer hover:bg-[#eef2e8]/60 transition-colors" onClick={(ev) => onCellClick(ev, e, "matchMethod")}>{e.matchMethod || "—"}</td>
+                      <td className="py-4 px-6 text-[#5c6b52] font-medium cursor-pointer hover:bg-[#eef2e8]/60 transition-colors" onClick={(ev) => onCellClick(ev, e, "matchMethod")}>{e.matchMethod || "-"}</td>
                       <td className="py-4 px-6 cursor-pointer hover:bg-[#eef2e8]/60 transition-colors" onClick={(ev) => onCellClick(ev, e, "confidence")}><ConfidenceBar value={e.confidence} /></td>
                       <td className="py-4 px-6 font-bold text-[#b5452f] cursor-pointer hover:bg-[#eef2e8]/60 transition-colors" onClick={(ev) => onCellClick(ev, e, "status")}><span className="inline-flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-[#b5452f]"></span>{e.status}</span></td>
                     </tr>
@@ -1067,7 +1066,7 @@ export default function ExceptionsPage({ run, showToast, onGoUpload, onAskAbout 
             <p className="text-xs text-[#5c6b52] mb-3">
               {sourceFocus ? (
                 <>
-                  Jumped to <span className="font-bold text-[#2b3527]">{sourceFocus.id}</span> — {COLUMN_LABELS[sourceFocus.column] || sourceFocus.column} column highlighted below.
+                  Jumped to <span className="font-bold text-[#2b3527]">{sourceFocus.id}</span> · {COLUMN_LABELS[sourceFocus.column] || sourceFocus.column} column highlighted below.
                 </>
               ) : (
                 "Cross-reference an exception against the raw rows the agent reconciled. Use search to find a payment ID."

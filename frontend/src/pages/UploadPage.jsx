@@ -6,7 +6,7 @@ import AgentTrace from "../components/AgentTrace.jsx";
 const FONT_IMPORT_URL =
   "https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap";
 
-// ─── Placeholder — swap for your real shared sample dataset ───
+// ─── Placeholder, swap for your real shared sample dataset ───
 const SAMPLE_DATASET_URL = "https://drive.google.com/drive/folders/1P3ob4rXyFbA94IAP4DG4Oi_9xi8wpQeE?usp=sharing";
 
 const ACCEPT_TABLE = ".csv,.xlsx,.xlsm,.xls,.xlsb,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv";
@@ -26,14 +26,14 @@ const PROGRESS_STEPS = [
 // ─── Plain-English glossary for jargon that shows up in the trace ─────────
 // Keys are matched case-insensitively as whole words/phrases inside trace text.
 const JARGON = [
-  { term: "UTR", def: "Unique Transaction Reference — the bank's own ID number for a transfer. It's how a payment on the bank statement gets linked back to the same payment in your order records." },
-  { term: "paise-exact", def: "Matched down to the paisa (1/100 of a rupee) — not just \"close enough,\" but the exact same amount on both sides." },
-  { term: "deterministic", def: "This step follows a fixed rule and always gives the same answer for the same input — it isn't a guess or an AI judgment call." },
-  { term: "rules", def: "A fixed, written rule that was applied — the same logic runs every time, so the outcome is predictable and auditable." },
-  { term: "fuzzy recovery", def: "A second pass that catches payments which don't line up perfectly — for example, a slightly delayed settlement or a typo'd reference number — using tolerances instead of an exact match." },
-  { term: "T+2", def: "\"Transaction date plus 2 business days\" — the normal window for a payment to show up as settled." },
+  { term: "UTR", def: "Unique Transaction Reference, the bank's own ID number for a transfer. It's how a payment on the bank statement gets linked back to the same payment in your order records." },
+  { term: "paise-exact", def: "Matched down to the paisa (1/100 of a rupee), not just \"close enough,\" but the exact same amount on both sides." },
+  { term: "deterministic", def: "This step follows a fixed rule and always gives the same answer for the same input, it isn't a guess or an AI judgment call." },
+  { term: "rules", def: "A fixed, written rule that was applied, the same logic runs every time, so the outcome is predictable and auditable." },
+  { term: "fuzzy recovery", def: "A second pass that catches payments which don't line up perfectly, for example, a slightly delayed settlement or a typo'd reference number, using tolerances instead of an exact match." },
+  { term: "T+2", def: "\"Transaction date plus 2 business days\" is the normal window for a payment to show up as settled." },
   { term: "audit trail", def: "A permanent, timestamped log of every decision the agent made, so a human can review or challenge any of them later." },
-  { term: "schema", def: "The expected shape of a file — its columns, headers, and data types. \"Schema checked\" means the file's structure matched what was expected before any numbers were touched." },
+  { term: "schema", def: "The expected shape of a file, its columns, headers, and data types. \"Schema checked\" means the file's structure matched what was expected before any numbers were touched." },
   { term: "triage", def: "Sorting each flagged record into a track: fix it automatically, explain it for a human to review, or escalate it as urgent." },
   { term: "near-miss", def: "A payment that didn't match exactly on the first pass, but was close enough to investigate further." },
 ];
@@ -55,7 +55,7 @@ const STAGE_EXPLAINERS = [
   {
     match: /fuzzy/i,
     icon: "fa-solid fa-magnifying-glass",
-    plain: "Goes back over anything left unmatched and looks for near-misses — a payment that landed a day or two late, or a reference number with a small typo — and links those up too.",
+    plain: "Goes back over anything left unmatched and looks for near-misses, a payment that landed a day or two late, or a reference number with a small typo, and links those up too.",
   },
   {
     match: /triag/i,
@@ -80,7 +80,7 @@ function toChips(fileList) {
   return Array.from(fileList).map((file) => ({ id: `chip_${Date.now()}_${chipSeq++}`, file }));
 }
 
-// ─── InfoTip — small themed (?) tooltip for jargon terms ──────────────────
+// ─── InfoTip, small themed (?) tooltip for jargon terms ──────────────────
 function InfoTip({ label, children }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
@@ -168,12 +168,12 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
   // ── explicit labeling state ──────────────────────────────────
   const [slotDragOver, setSlotDragOver] = useState(null); // slot id currently dragged-over
   const [combinedDragActive, setCombinedDragActive] = useState(false);
-  const [askSingle, setAskSingle] = useState(null); // { file } — ambiguous single file needs a label
+  const [askSingle, setAskSingle] = useState(null); // { file }. ambiguous single file needs a label
   const [assignChips, setAssignChips] = useState([]); // pending chips from a multi-file batch drop
   const [assignPanelOpen, setAssignPanelOpen] = useState(false);
   const [dragChipId, setDragChipId] = useState(null); // chip currently being dragged onto a slot
   const [assignHoverSlot, setAssignHoverSlot] = useState(null);
-  const [justAssigned, setJustAssigned] = useState(null); // slot id — brief confirm pulse
+  const [justAssigned, setJustAssigned] = useState(null); // slot id, brief confirm pulse
 
   const slotInputRefs = { orders: useRef(null), settlement: useRef(null), bank: useRef(null) };
   const combinedInputRef = useRef(null);
@@ -198,7 +198,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
       i += 1;
       setRevealed(i);
       if (i >= n) clearInterval(id);
-    }, 950);
+    }, 1100);
     return () => clearInterval(id);
   }, [runResult]);
 
@@ -277,7 +277,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
     if (!allThree) {
       setError({
         title: "Missing files",
-        items: [`Please label all 3 files before reconciling — ${openSlots.map((s) => s.name).join(", ")} still needed.`],
+        items: [`Please label all 3 files before reconciling. ${openSlots.map((s) => s.name).join(", ")} still needed.`],
       });
       return;
     }
@@ -285,7 +285,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
     if (invalid.length) {
       setError({
         title: "Validation errors",
-        items: invalid.map((s) => `${s.name}: "${s.file.name}" isn't a CSV or Excel file — check the file and try again.`),
+        items: invalid.map((s) => `${s.name}: "${s.file.name}" isn't a CSV or Excel file, check the file and try again.`),
       });
       return;
     }
@@ -295,7 +295,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
       setRunResult(resp);
     } catch (err) {
       // Most "validation errors" here trace back to a file landing in the wrong
-      // slot — surface the message plainly and let the person re-label below.
+      // slot, surface the message plainly and let the person re-label below.
       setError({ title: "Validation errors", items: [String(err.message)] });
       showToast(String(err.message), "error");
     } finally {
@@ -477,7 +477,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
         .rm-chip:active { cursor: grabbing; }
         .rm-chip.dragging { opacity: 0.4; }
 
-        /* ─── Live trace card — premium ledger-panel treatment ──── */
+        /* ─── Live trace card, premium ledger-panel treatment ──── */
         .rm-trace-card {
           position: relative;
           border-radius: 16px;
@@ -506,12 +506,11 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
         {/* header */}
         <header className="flex justify-between items-start mb-10 pb-6" style={{ borderBottom: "2px solid var(--rm-ink)" }}>
           <div>
-            <p className="rm-label text-[11px] mb-2" style={{ color: "var(--rm-rust)" }}>
-              — Reconciliation workspace
+            <p className="rm-label text-[11px] mb-2" style={{ color: "var(--rm-rust)" }}>Reconciliation workspace
             </p>
             <h1 className="rm-heading text-5xl mb-2 tracking-tight">Upload &amp; Reconcile</h1>
             <p className="rm-body text-sm font-medium" style={{ color: "var(--rm-ink-soft)" }}>
-              Bring your sources. We'll validate and reconcile — you tell us which file is which.
+              Bring your sources. We'll validate and reconcile, you tell us which file is which.
             </p>
           </div>
           <button
@@ -531,7 +530,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
             <p className="rm-body text-sm leading-relaxed flex-1" style={{ color: "var(--rm-ink-soft)" }}>
               Upload your <strong className="font-semibold" style={{ color: "var(--rm-ink)" }}>order export</strong>,{" "}
               <strong className="font-semibold" style={{ color: "var(--rm-ink)" }}>settlement report</strong>, and{" "}
-              <strong className="font-semibold" style={{ color: "var(--rm-ink)" }}>bank statement</strong> for the same period — drop each
+              <strong className="font-semibold" style={{ color: "var(--rm-ink)" }}>bank statement</strong> for the same period, drop each
               into its own slot below, or drop all 3 together and we'll ask you to confirm which is which.
               {" "}Don't have files handy?{" "}
               <a
@@ -593,7 +592,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
               <span className="rm-mono text-[10px]" style={{ color: "var(--rm-ink-soft)" }}>one by one, or all at once</span>
             </div>
             <p className="rm-body text-sm mb-5" style={{ color: "var(--rm-ink-soft)" }}>
-              Drop each file into its labeled slot — or drop all 3 into the tray and assign them in one go.
+              Drop each file into its labeled slot, or drop all 3 into the tray and assign them in one go.
             </p>
 
             {/* ── three explicit, self-labeling drop targets ───────── */}
@@ -731,31 +730,17 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
             {busy === "upload" ? (<><span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin mr-2.5" />Reconciling…</>) : (<>Reconcile now <i className="fa-solid fa-arrow-right ml-2.5 opacity-80"></i></>)}
           </button>
           <span className="rm-body text-sm font-medium" style={{ color: "var(--rm-ink-soft)" }}>or</span>
-          <button onClick={() => runDemo(false)} disabled={busy} className="rm-mono px-8 py-3.5 rounded-lg font-medium hover:-translate-y-0.5 active:translate-y-0 flex items-center transition-all duration-200 disabled:opacity-60 disabled:hover:translate-y-0" style={{ background: "var(--rm-card)", border: "1px solid var(--rm-ink)", color: "var(--rm-ink)", boxShadow: "0 1px 2px rgba(31,42,26,0.04), 0 8px 16px -10px rgba(31,42,26,0.2)" }}>
-            <i className="fa-solid fa-cloud-arrow-up mr-2.5" style={{ color: "var(--rm-rust)" }}></i>
-            {busy === "demo" ? "Running demo…" : "Try sample data (demo)"}
+          <button onClick={() => runDemo(true)} disabled={busy} className="rm-mono px-8 py-3.5 rounded-lg font-medium hover:-translate-y-0.5 active:translate-y-0 flex items-center transition-all duration-200 disabled:opacity-60 disabled:hover:translate-y-0" style={{ background: "var(--rm-card)", border: "1px solid var(--rm-ink)", color: "var(--rm-ink)", boxShadow: "0 1px 2px rgba(31,42,26,0.04), 0 8px 16px -10px rgba(31,42,26,0.2)" }}>
+            <i className="fa-solid fa-wand-magic-sparkles mr-2.5" style={{ color: "var(--rm-rust)" }}></i>
+            {busy === "demo-llm" || busy === "demo" ? "Running full demo (AI + verifier)…" : "Try sample data (demo + AI)"}
           </button>
         </div>
-        {/* premium demo suggestion — shows real AI cost, verified explanations, fills every card */}
-        <div className="max-w-2xl mx-auto -mt-4 mb-6 rounded-xl px-5 py-4 flex items-start gap-4"
-          style={{ background: "var(--rm-card-alt)", border: "1px solid var(--rm-line)" }}>
-          <div className="w-9 h-9 rounded-md flex items-center justify-center shrink-0"
-            style={{ background: "var(--rm-ink)", color: "var(--rm-card)" }}>
-            <i className="fa-solid fa-wand-magic-sparkles text-xs"></i>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="rm-heading-sm text-sm font-semibold">Premium demo: reconcile with LLM narration</div>
-            <div className="rm-body text-xs mt-1" style={{ color: "var(--rm-ink-soft)" }}>
-              Runs the full pipeline plus a verified GPT-4o-mini explainer on every exception.
-              Populates the AI cost / model / explanations strip with real numbers (~$0.02, ~30s).
-              Every LLM sentence is magnitude-checked by the hallucination verifier before it's shown.
-            </div>
-          </div>
-          <button onClick={() => runDemo(true)} disabled={busy}
-            className="rm-mono text-xs font-semibold px-4 py-2 rounded-md shrink-0 transition-all disabled:opacity-60 flex items-center gap-2"
-            style={{ background: "var(--rm-rust)", color: "#fff", boxShadow: "0 4px 12px -6px rgba(181,67,47,0.5)" }}>
-            {busy === "demo-llm" ? (<><span className="w-3 h-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />Running…</>) : (<>Run with LLM <i className="fa-solid fa-arrow-right"></i></>)}
-          </button>
+        {/* One-line disclosure so operators know what the demo button does */}
+        <div className="max-w-2xl mx-auto -mt-4 mb-6 text-center rm-body text-[11px]"
+          style={{ color: "var(--rm-ink-soft)" }}>
+          Sample-data demo runs the full pipeline <b>with</b> the GPT-4o-mini explainer on every
+          exception, populates the AI cost / model / explanations strip with real numbers
+          (~$0.02, ~30s). Every LLM sentence is magnitude-checked by the hallucination verifier.
         </div>
         <div className="text-center mb-8">
           <a href={SAMPLE_DATASET_URL} target="_blank" rel="noopener noreferrer" className="rm-mono text-xs font-medium underline underline-offset-2" style={{ color: "var(--rm-ink-soft)" }}>
@@ -826,9 +811,9 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
                       {done ? (
                         <>
                           {m.settlement_active} payment records were checked against your bank statement in {m.elapsed_seconds}s.{" "}
-                          {m.exceptions_total} of them didn't line up automatically and need a look —{" "}
+                          {m.exceptions_total} of them didn't line up automatically and need a look -{" "}
                           <InfoTip label="what's an exception?">
-                            An "exception" is any payment where the agent couldn't confirm both sides matched perfectly — a missing entry, a different amount, or a payment it can't yet explain. It doesn't mean money is missing; it means it needs a human to confirm.
+                            An "exception" is any payment where the agent couldn't confirm both sides matched perfectly, a missing entry, a different amount, or a payment it can't yet explain. It doesn't mean money is missing; it means it needs a human to confirm.
                           </InfoTip>.
                         </>
                       ) : (
@@ -848,7 +833,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
                 <p className="rm-body text-xs leading-relaxed mb-5" style={{ color: "var(--rm-ink-soft)" }}>
                   In plain terms: the agent read all three files, recalculated the fees your gateway should have charged, matched
                   each payment across orders, settlement and bank records, and only flagged the {m.exceptions_total} that genuinely
-                  need a decision from you. Nothing below was estimated or guessed — every stage is either an exact calculation or a
+                  need a decision from you. Nothing below was estimated or guessed, every stage is either an exact calculation or a
                   written rule, and the full chain is logged for audit. Tap the <span className="rm-mono" style={{ color: "var(--rm-rust-deep)", fontWeight: 600 }}>(?)</span> next to any stage below for a plain-English explanation.
                 </p>
               )}
@@ -861,10 +846,10 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
                 <div className="mt-5 flex items-start gap-2.5 text-xs font-medium rounded-lg px-4 py-3 w-fit max-w-full animate-[fadeSlideIn_0.4s_ease-out]" style={{ background: "var(--rm-moss-wash)", border: "1px solid var(--rm-moss)", color: "var(--rm-ink)" }}>
                   <i className="fa-solid fa-shield-halved mt-0.5" style={{ color: "var(--rm-moss)" }}></i>
                   <span className="rm-body leading-relaxed">
-                    Every stage above is either an exact calculation or a written, repeatable rule — nothing here was guessed.{" "}
+                    Every stage above is either an exact calculation or a written, repeatable rule, nothing here was guessed.{" "}
                     {runResult.decisions_logged} individual decisions were written to the{" "}
                     <InfoTip label="audit trail">
-                      A permanent, timestamped log of every decision the agent made — which files it read, which rule fired, and why — so a human can review or challenge any single one of them later.
+                      A permanent, timestamped log of every decision the agent made, which files it read, which rule fired, and why, so a human can review or challenge any single one of them later.
                     </InfoTip>{" "}
                     so any figure here can be traced back to the exact rows it came from.
                   </span>
@@ -875,7 +860,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
         })()}
       </div>
 
-      {/* ── explicit "which file is this?" ask — single ambiguous drop ── */}
+      {/* ── explicit "which file is this?" ask, single ambiguous drop ── */}
       {askSingle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: "rgba(31,42,26,0.45)" }} onClick={() => setAskSingle(null)}>
           <div className="rm-card-flat rm-panel-in p-7 w-full max-w-sm premium-shadow" onClick={(e) => e.stopPropagation()}>
@@ -903,7 +888,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
         </div>
       )}
 
-      {/* ── batch assignment panel — drop-3-at-once flow ── */}
+      {/* ── batch assignment panel, drop-3-at-once flow ── */}
       {assignPanelOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: "rgba(31,42,26,0.45)" }}>
           <div className="rm-card-flat rm-panel-in p-8 w-full max-w-2xl premium-shadow">
@@ -911,7 +896,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
               <div>
                 <h3 className="rm-heading-sm text-lg font-semibold">Which file is which?</h3>
                 <p className="rm-body text-sm mt-1" style={{ color: "var(--rm-ink-soft)" }}>
-                  Drag each file onto its slot — or tap a slot, then tap a file.
+                  Drag each file onto its slot, or tap a slot, then tap a file.
                 </p>
               </div>
               <button onClick={closeAssignPanel} className="transition-colors duration-150" style={{ color: "var(--rm-ink-soft)" }}>
@@ -953,7 +938,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
               <>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="flex-1 h-px" style={{ background: "var(--rm-line)" }} />
-                  <span className="rm-mono text-[10px]" style={{ color: "var(--rm-ink-soft)" }}>UNLABELED — {assignChips.length} LEFT</span>
+                  <span className="rm-mono text-[10px]" style={{ color: "var(--rm-ink-soft)" }}>UNLABELED. {assignChips.length} LEFT</span>
                   <div className="flex-1 h-px" style={{ background: "var(--rm-line)" }} />
                 </div>
                 <div className="flex flex-wrap gap-2.5">
@@ -987,7 +972,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
             {assignChips.length === 0 && (
               <div className="rounded-lg p-3 flex items-center gap-2 text-sm mt-2" style={{ background: "var(--rm-moss-wash)", border: "1px solid var(--rm-moss)" }}>
                 <i className="fa-regular fa-circle-check" style={{ color: "var(--rm-moss)" }}></i>
-                <span className="rm-body" style={{ color: "var(--rm-ink)" }}>All set — closing…</span>
+                <span className="rm-body" style={{ color: "var(--rm-ink)" }}>All set, closing…</span>
               </div>
             )}
 

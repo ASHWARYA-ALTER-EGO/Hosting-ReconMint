@@ -72,8 +72,7 @@ export default function QualitySignalsCard({ runId }) {
             <i className="fa-solid fa-shield-halved text-xs"></i>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>
-              — Batch quality signals
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: C.rust }}>Batch quality signals
             </div>
             <h2 className="text-[15px] font-semibold tracking-tight" style={{ color: C.ink }}>
               How trustworthy is this run?
@@ -92,47 +91,36 @@ export default function QualitySignalsCard({ runId }) {
         </div>
       </div>
 
-      <p className="px-6 text-[11px] leading-relaxed pb-3" style={{ color: C.softText }}>
-        No ground-truth answer key exists for uploaded data — so instead of a fake F1, ReconMint
-        publishes six proxy signals a controller can trust immediately. Each is derived from the
-        audited decisions alone. <span className="italic">Not precision/recall.</span>
-      </p>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-6 pb-6">
-        {signals.map((s) => {
-          const g = GRADE_COLOR[s.grade] || GRADE_COLOR.C;
-          return (
-            <div key={s.key} className="rounded-lg border p-3.5" style={{ background: C.card, borderColor: C.border }}>
-              <div className="flex items-center gap-2 mb-1">
+      <div className="px-6 pb-5">
+        <div className="text-[11px] mb-3" style={{ color: C.softText }}>
+          Six proxy signals from the audited decisions. Not F1 (uploads have no ground truth).
+        </div>
+        <div className="rounded-lg border overflow-hidden" style={{ borderColor: C.border }}>
+          {signals.map((s, i) => {
+            const g = GRADE_COLOR[s.grade] || GRADE_COLOR.C;
+            return (
+              <div key={s.key}
+                className={`flex items-center gap-3 px-3.5 py-2.5 ${i > 0 ? "border-t" : ""}`}
+                style={{ borderColor: C.border }}>
                 <span
-                  className="inline-flex items-center justify-center w-6 h-6 rounded text-[11px] font-bold"
-                  style={{ background: g.bg, color: g.fg, border: `1px solid ${g.ring}` }}
-                >
+                  className="inline-flex items-center justify-center w-6 h-6 rounded text-[11px] font-bold shrink-0"
+                  style={{ background: g.bg, color: g.fg, border: `1px solid ${g.ring}` }}>
                   {s.grade}
                 </span>
-                <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.ink }}>
+                <span className="text-[12px] font-semibold min-w-[170px]" style={{ color: C.ink }}>
                   {s.label}
                 </span>
+                <span className="flex-1 text-[11px] truncate" style={{ color: C.softText }} title={s.detail}>
+                  {s.detail}
+                </span>
                 {s.value_pct != null && (
-                  <span className="ml-auto text-[13px] font-semibold tabular-nums" style={{ color: C.ink }}>
+                  <span className="text-[12px] font-semibold tabular-nums shrink-0" style={{ color: C.ink }}>
                     {s.value_pct.toFixed(1)}%
                   </span>
                 )}
               </div>
-              <div className="text-[11px] mt-1" style={{ color: C.softText }}>{s.detail}</div>
-              <div className="text-[10px] mt-2 italic" style={{ color: C.softText }}>{s.why}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="px-6 pb-5 -mt-2">
-        <div className="text-[10px] p-3 rounded border-l-2" style={{
-          borderColor: cGrade.ring,
-          background: "rgba(31,42,26,0.03)",
-          color: C.softText,
-        }}>
-          {composite.note}
+            );
+          })}
         </div>
       </div>
     </div>
