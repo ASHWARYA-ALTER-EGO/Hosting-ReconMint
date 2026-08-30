@@ -151,8 +151,8 @@ function Tip({ label, children }) {
    ICONS (inline SVG, only the two the prompt box actually uses)
 ───────────────────────────────────────────────────────────── */
 const Icon = {
-  ArrowUp: () => <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>,
-  Stop: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>,
+  ArrowUp: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>,
+  Stop: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>,
 };
 
 /* ─────────────────────────────────────────────────────────────
@@ -194,7 +194,7 @@ export const PromptInputBox = forwardRef(({ onSend, isLoading = false, placehold
         boxShadow: focused ? "0 4px 18px rgba(31,42,26,0.09)" : "0 1px 3px rgba(31,42,26,0.05)",
       }}
     >
-      <div className="px-5 pt-4">
+      <div className="px-4 pt-2.5">
         <textarea
           ref={textareaRef}
           value={input}
@@ -205,15 +205,15 @@ export const PromptInputBox = forwardRef(({ onSend, isLoading = false, placehold
           rows={1}
           placeholder={placeholder}
           disabled={isLoading}
-          className="w-full resize-none bg-transparent text-[16px] rm-mono focus:outline-none leading-relaxed disabled:opacity-50 placeholder:text-[#A9B396]"
-          style={{ minHeight: 46, maxHeight: 200, color: "#1F2A1A" }}
+          className="w-full resize-none bg-transparent text-[14.5px] rm-mono focus:outline-none leading-snug disabled:opacity-50 placeholder:text-[#A9B396]"
+          style={{ minHeight: 26, maxHeight: 140, color: "#1F2A1A" }}
         />
       </div>
 
-      <div className="flex items-center justify-between gap-3 px-4 pb-3.5 pt-2.5 border-t"
+      <div className="flex items-center justify-between gap-3 px-3.5 pb-2 pt-1.5 border-t"
         style={{ borderColor: "#EEF2E4" }}>
         {/* Left: transparent scope disclosure - honest about what this box does */}
-        <div className="flex items-center gap-2 text-[12px] rm-mono uppercase tracking-wider"
+        <div className="flex items-center gap-2 text-[10.5px] rm-mono uppercase tracking-wider"
           style={{ color: "#8A9478" }}>
           <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#B5432F" }} />
           This run only · figures verified before sent
@@ -223,7 +223,7 @@ export const PromptInputBox = forwardRef(({ onSend, isLoading = false, placehold
           <button
             onClick={handleSubmit}
             disabled={isLoading || !hasContent}
-            className="flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200 disabled:opacity-40"
+            className="flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 disabled:opacity-40"
             style={
               isLoading ? { background: "rgba(31,42,26,0.06)", color: "#6B7660" }
               : hasContent ? { background: "#1F2A1A", color: "#FBFBF3", boxShadow: "0 2px 8px rgba(31,42,26,0.25)" }
@@ -750,7 +750,7 @@ export default function AskPage({ run, showToast, onGoUpload, preload }) {
       {/* header — ledger letterhead, not a flat white bar */}
       <header className="relative z-10 overflow-hidden">
         <div
-          className="px-9 pt-7 pb-5 relative"
+          className="px-9 pt-4 pb-3 relative"
           style={{
             background: "linear-gradient(180deg, #EFF3E4 0%, #F5F7EE 65%, #FBFBF3 100%)",
           }}
@@ -764,36 +764,36 @@ export default function AskPage({ run, showToast, onGoUpload, preload }) {
             }}
           />
 
-          <div className="relative flex items-start justify-between gap-6 flex-wrap">
-            <div>
-              <div className="flex items-center gap-2.5 mb-2.5">
-                <span className="w-5 h-px" style={{ background: "#B5432F" }} />
-                <span className="text-[11.5px] font-semibold uppercase tracking-[0.18em]" style={{ color: "#B5432F" }}>
+          <div className="relative flex items-center justify-between gap-6 flex-wrap">
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="w-4 h-px" style={{ background: "#B5432F" }} />
+                <span className="text-[10.5px] font-semibold uppercase tracking-[0.16em]" style={{ color: "#B5432F" }}>
                   Ask the Agent
                 </span>
               </div>
               <h1
-                className="rm-display leading-[1.08]"
-                style={{ color: "#1F2A1A", fontSize: 36, letterSpacing: "-0.01em" }}
+                className="rm-display leading-none"
+                style={{ color: "#1F2A1A", fontSize: 22, letterSpacing: "-0.01em" }}
               >
                 Ask the Agent
               </h1>
-              <p className="rm-sans text-[16.5px] mt-3 leading-snug max-w-md" style={{ color: "#5B6650" }}>
+              <p className="rm-sans text-[13px] leading-snug" style={{ color: "#5B6650" }}>
                 Every answer verified before it's said — it cannot fabricate a rupee.
               </p>
             </div>
 
             {(run.runId || run.run_id) && (
               <div
-                className="mt-1 flex items-center gap-2.5 rounded-md border px-3.5 py-2"
+                className="flex items-center gap-2 rounded-md border px-3 py-1.5"
                 style={{ background: "rgba(251,251,243,0.7)", borderColor: "#D9E3C8" }}
               >
                 <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "#B5432F" }} />
                 <div className="leading-tight">
-                  <div className="text-[9.5px] font-semibold uppercase tracking-[0.14em]" style={{ color: "#8A9478" }}>
+                  <div className="text-[8.5px] font-semibold uppercase tracking-[0.14em]" style={{ color: "#8A9478" }}>
                     Run reference
                   </div>
-                  <div className="text-[13px] rm-mono font-medium tabular-nums" style={{ color: "#1F2A1A" }}>
+                  <div className="text-[12px] rm-mono font-medium tabular-nums" style={{ color: "#1F2A1A" }}>
                     {run.runId || run.run_id}
                   </div>
                 </div>
@@ -853,7 +853,7 @@ export default function AskPage({ run, showToast, onGoUpload, preload }) {
       </div>
 
       {/* input area */}
-      <div className="border-t px-7 py-5 relative z-10" style={{ borderColor: "#E7EEDD", background: "#FBFBF3" }}>
+      <div className="border-t px-7 py-3 relative z-10" style={{ borderColor: "#E7EEDD", background: "#FBFBF3" }}>
         <div className="max-w-3xl mx-auto">
           {examples.length > 0 && history.length === 0 && (
             <ExampleChips examples={examples} onAsk={ask} disabled={busy} />
@@ -867,9 +867,9 @@ export default function AskPage({ run, showToast, onGoUpload, preload }) {
             />
           </BorderBeam>
 
-          <p className="text-[12px] text-center mt-2.5" style={{ color: "#A9B396" }}>
+          <p className="text-[10.5px] text-center mt-1.5" style={{ color: "#A9B396" }}>
             Answers this run only, files, fees, exceptions, payment ids. Off-topic questions are refused.
-            &nbsp;·&nbsp; Press <kbd className="border rounded px-1.5 py-0.5 text-[11px]" style={{ background: "#F3F6ED", borderColor: "#D9E3C8" }}>Enter</kbd> to send
+            &nbsp;·&nbsp; Press <kbd className="border rounded px-1.5 py-0.5 text-[10px]" style={{ background: "#F3F6ED", borderColor: "#D9E3C8" }}>Enter</kbd> to send
           </p>
         </div>
       </div>

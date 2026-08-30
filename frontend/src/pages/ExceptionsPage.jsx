@@ -298,8 +298,115 @@ const TABS = [
   { id: "diagnose", label: "Diagnose & Fix", icon: "fa-stethoscope" },
   { id: "ledger", label: "Ledger", icon: "fa-table-list" },
   { id: "decisions", label: "Decisions", icon: "fa-code-branch" },
+  { id: "truth", label: "Appeal to Razorpay", icon: "fa-shield-halved" },
   { id: "explain", label: "Explain", icon: "fa-wand-magic-sparkles" },
 ];
+
+// Truth-Anchor drawer panel. Live-appeals ONE payment to api.razorpay.com when
+// the operator asks. The API's response is the tiebreaker: if it disagrees with
+// what the CSV said, this drawer surfaces the drift line by line.
+function TruthAnchorPanel({ runId, paymentId }) {
+  const [result, setResult] = React.useState(null);
+  const [err, setErr] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+
+  const run = () => {
+    setBusy(true); setErr(null); setResult(null);
+    api.verifyPaymentAgainstRazorpay(runId, paymentId)
+      .then(setResult)
+      .catch((e) => setErr(String(e.message || e)))
+      .finally(() => setBusy(false));
+  };
+
+  const verdictStyle = {
+    matches:     { color: "#4B7B4E", label: "CSV matches live Razorpay record" },
+    stale_csv:   { color: "#B5432F", label: "Stale CSV: trust the API record" },
+    not_found:   { color: "#B8863B", label: "Ghost id: not present at Razorpay" },
+    unreachable: { color: "#6B7660", label: "Razorpay API unreachable" },
+    no_keys:     { color: "#6B7660", label: "Truth-Anchor Agent not configured" },
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="p-4 border border-[#c7d1bc] bg-[#f6f4ea]">
+        <div className="text-[10px] uppercase tracking-[0.14em] font-bold text-[#5c6b52] mb-1">
+          Truth-Anchor Agent · appeals court
+        </div>
+        <div className="text-[13px] text-[#2b3527] leading-relaxed">
+          Appeal <code className="bg-white px-1 rounded">{paymentId}</code> to the live
+          <span className="text-[#0057BA] font-semibold"> Razorpay API</span>. Its response
+          is the ground truth. If your uploaded CSV disagrees on gross, fee or tax, the CSV is stale.
+        </div>
+        <button
+          type="button"
+          onClick={run}
+          disabled={busy || !paymentId}
+          className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold uppercase tracking-wider bg-[#3395FF] text-white border border-[#0057BA] active:scale-[0.98] disabled:opacity-50"
+        >
+          <i className={`fa-solid ${busy ? "fa-circle-notch fa-spin" : "fa-shield-halved"}`}></i>
+          {busy ? "Appealing…" : "Verify against Razorpay"}
+        </button>
+      </div>
+
+      {err && (
+        <div className="p-3 border border-[#B5432F] bg-[#fbeeea] text-[12px] text-[#B5432F]">
+          Could not appeal: {err}
+        </div>
+      )}
+
+      {result && (
+        <div className="p-4 border border-[#c7d1bc] bg-white">
+          <div className="text-[10px] uppercase tracking-[0.14em] font-bold mb-1"
+               style={{ color: (verdictStyle[result.verdict] || {}).color || "#5c6b52" }}>
+            {(verdictStyle[result.verdict] || {}).label || result.verdict}
+          </div>
+          <div className="text-[12.5px] text-[#2b3527] leading-relaxed mb-3">
+            {result.headline}
+          </div>
+
+          {result.api && (
+            <table className="w-full text-[12px] font-mono border-collapse">
+              <thead>
+                <tr className="text-[9.5px] uppercase tracking-[0.1em] text-[#5c6b52]">
+                  <th className="text-left py-1.5">Field</th>
+                  <th className="text-right py-1.5">Your CSV</th>
+                  <th className="text-right py-1.5 text-[#0057BA]">Live Razorpay</th>
+                  <th className="text-right py-1.5">Drift</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Gross", "gross_paise"],
+                  ["Fee (MDR)", "fee_paise"],
+                  ["Tax (GST)", "tax_paise"],
+                ].map(([label, key]) => {
+                  const csvV = (result.csv || {})[key] ?? 0;
+                  const apiV = (result.api || {})[key] ?? 0;
+                  const drift = (result.drift || {})[key] ?? 0;
+                  const off = drift !== 0;
+                  return (
+                    <tr key={key} className="border-t border-dashed border-[#e6e9dc]">
+                      <td className="py-1.5 text-[#5c6b52] text-[10.5px] uppercase tracking-[0.04em]">{label}</td>
+                      <td className="py-1.5 text-right tabular-nums">₹{(csvV/100).toFixed(2)}</td>
+                      <td className="py-1.5 text-right tabular-nums">₹{(apiV/100).toFixed(2)}</td>
+                      <td className={`py-1.5 text-right tabular-nums ${off ? "text-[#B5432F] font-bold" : "text-[#8A9478]"}`}>
+                        {drift === 0 ? "0" : `${drift > 0 ? "▲" : "▼"} ₹${Math.abs(drift/100).toFixed(2)}`}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+
+          <div className="mt-3 pt-2 border-t border-[#e6e9dc] text-[10px] text-[#8A9478]">
+            Source of truth: <code className="text-[#2b3527]">GET api.razorpay.com/v1/payments/{paymentId}</code>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const STRATEGY_META = {
   amount_utr_fuzzy:  { label: "Amount + UTR fuzzy",     icon: "fa-magnifying-glass" },
@@ -430,7 +537,7 @@ function DecisionsTree({ item }) {
   );
 }
 
-function Drawer({ item, onClose, onResolve, resolving, onExplain, explaining, showToast, onViewSource, onAskFix, onPrev, onNext, hasPrev, hasNext, position }) {
+function Drawer({ item, runId, onClose, onResolve, resolving, onExplain, explaining, showToast, onViewSource, onAskFix, onPrev, onNext, hasPrev, hasNext, position }) {
   const led = item.ledger;
   const [visible, setVisible] = useState(false);
   const [tab, setTab] = useState("overview");
@@ -732,6 +839,10 @@ function Drawer({ item, onClose, onResolve, resolving, onExplain, explaining, sh
 
           {tab === "decisions" && (
             <DecisionsTree item={item} />
+          )}
+
+          {tab === "truth" && (
+            <TruthAnchorPanel runId={runId} paymentId={item.id} />
           )}
 
           {tab === "explain" && (
@@ -1100,6 +1211,7 @@ export default function ExceptionsPage({ run, showToast, onGoUpload, onAskAbout 
       {selected && (
         <Drawer
           item={selected}
+          runId={run?.runId}
           onClose={() => setSelected(null)}
           onResolve={resolve}
           resolving={resolving}

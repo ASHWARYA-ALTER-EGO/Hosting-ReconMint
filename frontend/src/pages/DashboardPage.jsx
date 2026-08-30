@@ -11,7 +11,7 @@ import TaxExposureCard from "../components/TaxExposureCard.jsx";
 import QualitySignalsCard from "../components/QualitySignalsCard.jsx";
 import RazorpayVerificationCard from "../components/RazorpayVerificationCard.jsx";
 import RazorpayVerificationBar from "../components/RazorpayVerificationBar.jsx";
-import RazorpayLiveCard from "../components/RazorpayLiveCard.jsx";
+import TruthAnchorCard from "../components/TruthAnchorCard.jsx";
 import RepairAgentCard from "../components/RepairAgentCard.jsx";
 import FeeSlabCard from "../components/FeeSlabCard.jsx";
 import BenchmarkChip from "../components/BenchmarkChip.jsx";
@@ -1040,9 +1040,12 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
             <MetricCard title="Exceptions" subtitle="(Needs review)" value={`${m.exceptions_total}`} numeric={m.exceptions_total} footnote={`${exceptionsPct}% of records`} tone="negative" delay={160} />
           </section>
 
-          {/* Bold Razorpay live-connection card, visible on every tab so the sponsor-product
-              integration is unmissable. Click to expand and see the real records fetched. */}
-          <RazorpayLiveCard runId={run.runId} />
+          {/* Truth-Anchor Agent card. This is the actual use of the sponsor API in
+              ReconMint: for every exception, appeal to api.razorpay.com and treat the
+              live record as ground truth. Replaces the old always-visible "3 sample
+              records" card because that one proved connectivity but shipped no
+              finding a controller could act on. This one does. */}
+          <TruthAnchorCard runId={run.runId} onJumpToException={onGoExceptions} />
 
           {/* Tabbed body, kills scroll fatigue by grouping cards by intent. */}
           <DashboardTabs

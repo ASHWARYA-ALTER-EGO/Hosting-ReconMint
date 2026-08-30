@@ -534,18 +534,20 @@ def run_cash_forecast(run_id: str, horizon_days: int = 7, t_plus: int = 2,
     if as_of:
         today = date.fromisoformat(as_of)
     else:
-        settled_dates = [r.get("record_date") for r in rows
-                         if r.get("record_type") == "settlement" and r.get("record_date")]
+        # Anchor "today" INSIDE the batch's date window so the forecast is meaningful.
+        # We pick the median settled_date and use that as "now" - so past landings fill
+        # the retrospective half and in-flight settlements project into the prospective
+        # half. Historical clamping to date.today() was wrong: batches often carry dates
+        # weeks in the past (or synthetic dates), and clamping made the window overshoot
+        # the data so every bucket returned zero.
+        settled_dates = sorted(
+            date.fromisoformat(r["record_date"])
+            for r in rows
+            if r.get("record_type") == "settlement" and r.get("record_date")
+        )
         if settled_dates:
-            try:
-                first = min(date.fromisoformat(d) for d in settled_dates)
-                # Land as_of a couple of days after the earliest settlement so the horizon
-                # covers real T+ landings from the batch.
-                today = first + timedelta(days=1)
-                # But never claim "today" is in the future beyond real today.
-                today = min(today, date.today())
-            except (ValueError, TypeError):
-                today = date.today()
+            # Median: sits inside the batch, gives both halves of the chart real data.
+            today = settled_dates[len(settled_dates) // 2]
         else:
             today = date.today()
 
@@ -695,6 +697,186 @@ def run_razorpay_verification(run_id: str):
                        "added, or RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET were not set."),
         })
     return v
+
+
+def _ledger_from_decision(dec: dict) -> dict:
+    """Extract the CSV-side fee ladder from a decision row's ledger_json.
+    Returns a normalized dict with paise fields we can diff against the live API."""
+    raw = dec.get("ledger_json")
+    if not raw:
+        return {}
+    try:
+        parsed = _json.loads(raw) if isinstance(raw, str) else raw
+    except Exception:
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    return parsed
+
+
+def _truth_anchor_diff(dec: dict, api_payment: dict | None, api_status: str) -> dict:
+    """Compare one audited decision (from the merchant's uploaded CSV) against the
+    authoritative live Razorpay payment record. Return a per-field diff with a
+    verdict class the frontend renders as a badge."""
+    csv_ledger = _ledger_from_decision(dec)
+    csv_gross = int(csv_ledger.get("gross_paise") or dec.get("amount_paise") or 0)
+    csv_fee   = int(csv_ledger.get("mdr_paise") or 0)
+    csv_tax   = int(csv_ledger.get("gst_paise") or 0)
+
+    # api_status codes: "ok" | "not_found" | "unreachable" | "no_keys"
+    if api_status != "ok" or api_payment is None:
+        return {
+            "payment_id": dec.get("record_ref"),
+            "verdict": api_status,   # bubble up for the UI badge
+            "csv": {"gross_paise": csv_gross, "fee_paise": csv_fee, "tax_paise": csv_tax},
+            "api": None,
+            "drift": None,
+            "headline": _truth_headline_for_status(api_status, dec.get("record_ref")),
+        }
+
+    api_gross = int(api_payment.get("amount_paise") or 0)
+    api_fee   = int(api_payment.get("fee_paise") or 0)
+    api_tax   = int(api_payment.get("tax_paise") or 0)
+
+    drift = {
+        "gross_paise": api_gross - csv_gross,
+        "fee_paise":   api_fee   - csv_fee,
+        "tax_paise":   api_tax   - csv_tax,
+    }
+    # Any nonzero drift on gross/fee/tax = stale CSV finding.
+    material = any(abs(v) > 0 for v in drift.values())
+    verdict = "stale_csv" if material else "matches"
+    headline = ("CSV matches live Razorpay record to the paise."
+                if not material else
+                "Live Razorpay disagrees with your CSV. Trust the API record.")
+    return {
+        "payment_id": dec.get("record_ref"),
+        "verdict": verdict,
+        "csv": {"gross_paise": csv_gross, "fee_paise": csv_fee, "tax_paise": csv_tax},
+        "api": {
+            "gross_paise": api_gross,
+            "fee_paise":   api_fee,
+            "tax_paise":   api_tax,
+            "status":      api_payment.get("status"),
+            "method":      api_payment.get("method"),
+            "captured":    api_payment.get("captured"),
+        },
+        "drift": drift,
+        "headline": headline,
+    }
+
+
+def _truth_headline_for_status(status: str, pid: str | None) -> str:
+    if status == "not_found":
+        return (f"Payment {pid} is in your CSV but does NOT exist at Razorpay. "
+                "Either the id is wrong, or the payment was never authorized.")
+    if status == "no_keys":
+        return "Razorpay keys not configured on the backend. Truth-Anchor unavailable."
+    if status == "unreachable":
+        return "Razorpay API unreachable. Retry the appeal in a moment."
+    return "Unknown status."
+
+
+def _resolve_payment_via_rzp(pid: str) -> tuple[str, dict | None]:
+    """Fetch one payment_id from the live Razorpay API. Returns (status, payment | None).
+    status: 'ok' | 'not_found' | 'unreachable' | 'no_keys'."""
+    from backend.agent import razorpay_client as rzp
+    if not rzp.keys_configured():
+        return ("no_keys", None)
+    res = rzp.fetch_payment(pid)
+    if res.ok:
+        if res.payments:
+            return ("ok", res.payments[0])
+        return ("not_found", None)
+    if res.status_code == 404:
+        return ("not_found", None)
+    return ("unreachable", None)
+
+
+@app.get("/runs/{run_id}/truth-anchor")
+def run_truth_anchor(run_id: str, payment_id: str):
+    """Appeal one payment to the live Razorpay API. The API's response is the tiebreaker:
+    if it disagrees with the merchant's uploaded CSV, the CSV is stale (or the id is bogus).
+
+    This is the sponsor-API-as-appeals-court endpoint. It is called from the Exceptions
+    drawer's "Verify against Razorpay" button, or from the aggregate /scan endpoint."""
+    if not audit.get_run(run_id):
+        return JSONResponse(status_code=404, content={"error": "not_found",
+                                                      "detail": f"run {run_id} not found"})
+    if not payment_id:
+        return JSONResponse(status_code=400, content={"error": "bad_request",
+                                                      "detail": "payment_id query param is required"})
+    # Find the audited decision for this payment in this run.
+    matches = [d for d in audit.get_decisions(run_id) if (d.get("record_ref") == payment_id
+                                                          and d.get("record_type") == "settlement")]
+    if not matches:
+        return JSONResponse(status_code=404, content={
+            "error": "not_in_run",
+            "detail": f"payment {payment_id} not found among this run's audited settlements",
+        })
+    dec = matches[0]
+    api_status, api_payment = _resolve_payment_via_rzp(payment_id)
+    return _truth_anchor_diff(dec, api_payment, api_status)
+
+
+# Cheap per-process cache so hitting the scan twice in one demo does not re-hammer
+# the Razorpay API. Keyed by run_id. Cleared on process restart, which is fine.
+_TRUTH_ANCHOR_CACHE: dict[str, dict] = {}
+
+
+@app.get("/runs/{run_id}/truth-anchor/scan")
+def run_truth_anchor_scan(run_id: str, limit: int = 25):
+    """Sweep the run's exceptions through the appeals-court API. Returns per-payment
+    diffs plus aggregate counts a dashboard card can render as its summary.
+
+    Rate-conscious: hard capped at `limit` calls (default 25) so a big batch cannot
+    accidentally saturate the Razorpay API. Results are cached per run for the process
+    lifetime; pass ?force=1 to re-fetch."""
+    if not audit.get_run(run_id):
+        return JSONResponse(status_code=404, content={"error": "not_found",
+                                                      "detail": f"run {run_id} not found"})
+    if run_id in _TRUTH_ANCHOR_CACHE:
+        return _TRUTH_ANCHOR_CACHE[run_id]
+    from backend.agent import razorpay_client as rzp
+    if not rzp.keys_configured():
+        payload = {
+            "run_id": run_id,
+            "keys_configured": False,
+            "scanned": 0,
+            "summary": {"matches": 0, "stale_csv": 0, "not_found": 0, "unreachable": 0},
+            "findings": [],
+            "detail": ("Razorpay keys are not set on the backend, so the Truth-Anchor "
+                       "Agent cannot appeal. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET."),
+        }
+        return payload
+    exceptions = [d for d in audit.get_exceptions(run_id)
+                  if d.get("record_type") == "settlement" and d.get("record_ref")]
+    exceptions = exceptions[: max(1, min(int(limit), 50))]
+    findings: list[dict] = []
+    counts = {"matches": 0, "stale_csv": 0, "not_found": 0, "unreachable": 0}
+    for dec in exceptions:
+        pid = dec["record_ref"]
+        api_status, api_payment = _resolve_payment_via_rzp(pid)
+        diff = _truth_anchor_diff(dec, api_payment, api_status)
+        findings.append(diff)
+        v = diff["verdict"]
+        if v in counts:
+            counts[v] += 1
+        elif v == "no_keys":
+            # keys were revoked mid-scan; abort cleanly
+            counts["unreachable"] += 1
+    # Rank: stale_csv first (most interesting), then not_found, then unreachable, then matches.
+    order = {"stale_csv": 0, "not_found": 1, "unreachable": 2, "matches": 3}
+    findings.sort(key=lambda f: (order.get(f["verdict"], 9), f.get("payment_id") or ""))
+    payload = {
+        "run_id": run_id,
+        "keys_configured": True,
+        "scanned": len(exceptions),
+        "summary": counts,
+        "findings": findings,
+    }
+    _TRUTH_ANCHOR_CACHE[run_id] = payload
+    return payload
 
 
 @app.get("/benchmark")

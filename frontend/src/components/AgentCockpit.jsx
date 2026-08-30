@@ -85,6 +85,12 @@ const STATIONS = [
     match: /verif|logg|audit/i, accent: C.ink,
     explain: "Writes every decision to SQLite. Every rupee on the Dashboard maps back to one row here. This is what makes any answer 'provable' instead of 'summarised'.",
   },
+  {
+    key: "truth", number: "08", name: "Truth-Anchor Agent",
+    role: "appeals court", icon: "fa-shield-halved",
+    match: /truth|anchor|appeal/i, accent: C.rzpBlue,
+    explain: "For every exception, appeals to the live Razorpay API and treats the response as ground truth. If your uploaded CSV disagrees on gross, fee or tax, this agent surfaces the drift so you know which record to trust.",
+  },
 ];
 
 function findStep(steps, matcher) {
