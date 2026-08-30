@@ -89,7 +89,7 @@ def chat(system: str, user: str, *, model: str | None = None,
     except ImportError as e:
         raise LLMError("openai package not installed; pip install -r requirements.txt") from e
 
-    client = OpenAI(api_key=api_key, timeout=8.0)
+    client = OpenAI(api_key=api_key, timeout=20.0)
     kwargs = dict(
         model=model,
         messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],

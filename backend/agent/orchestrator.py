@@ -363,21 +363,33 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
             decision["strategy_attempts_json"] = json.dumps(rep["attempts"])
             decision["accepted_strategy"] = rep["accepted_strategy"]
 
-        # LLM explanation only on the EXPLAIN branch, only within budget
+        # LLM explanation only on the EXPLAIN branch, only within budget.
+        # Any LLM failure (network, timeout, auth) must NOT crash the reconcile -
+        # fall back to the deterministic explanation and record the source as "fallback".
         if action == EXPLAIN and use_llm and (max_llm_calls is None or llm_calls < max_llm_calls):
-            outcome = explain_row(row, use_llm=True)
-            llm_calls += 1
-            llm_cost_total += outcome.cost_usd
-            if outcome.verified and outcome.source == "llm_verified":
-                llm_verified_count += 1
-            decision.update({
-                "llm_explanation": outcome.text,
-                "llm_source": outcome.source,
-                "llm_verified": outcome.verified,
-                "llm_model": outcome.model,
-                "llm_cost_usd": outcome.cost_usd,
-                "llm_latency_ms": outcome.latency_ms,
-            })
+            try:
+                outcome = explain_row(row, use_llm=True)
+            except Exception as _llm_err:
+                try:
+                    outcome = explain_row(row, use_llm=False)
+                except Exception:
+                    outcome = None
+                if outcome is not None:
+                    outcome.source = "fallback_error"
+                    outcome.verified = False
+            if outcome is not None:
+                llm_calls += 1
+                llm_cost_total += outcome.cost_usd
+                if outcome.verified and outcome.source == "llm_verified":
+                    llm_verified_count += 1
+                decision.update({
+                    "llm_explanation": outcome.text,
+                    "llm_source": outcome.source,
+                    "llm_verified": outcome.verified,
+                    "llm_model": outcome.model,
+                    "llm_cost_usd": outcome.cost_usd,
+                    "llm_latency_ms": outcome.latency_ms,
+                })
 
         decisions.append(decision)
 
