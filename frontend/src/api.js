@@ -80,6 +80,13 @@ function mapException(d) {
     llmModel: d.llm_model,
     reason: d.reason,
     resolution: d.resolution,
+    // Repair Agent audit trail: the per-record attempt tree the Decisions tab renders.
+    // Without these two fields the drawer showed the empty "Repair Agent didn't run"
+    // state on every row, even when strategy_attempts_json existed on the server.
+    strategy_attempts: d.strategy_attempts || [],
+    accepted_strategy: d.accepted_strategy || null,
+    // Diagnose tab checklist state that persists across sessions.
+    checklist_state: d.checklist_state || {},
   };
 }
 
