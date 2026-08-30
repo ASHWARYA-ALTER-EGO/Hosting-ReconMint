@@ -19,9 +19,9 @@ const YOUR_NAME = "Ashwarya Pradhan";
 const YOUR_GITHUB_URL = "https://github.com/pradhanashwarya2122";
 const YOUR_GITHUB_HANDLE = "@pradhanashwarya2122";
 const REPO_URL = "https://github.com/pradhanashwarya2122";
-// Set to a real YouTube video ID once the pitch is recorded, e.g. "abc123DEF".
-// null = the "Watch demo" button is not rendered at all (safer than a placeholder).
-const DEMO_VIDEO_ID = null;
+// YouTube video id for the pitch demo. When set, the landing page renders
+// a "Watch demo" button that opens an autoplaying in-page lightbox.
+const DEMO_VIDEO_ID = "l8uax4pVOZ0";
 
 const FONT_IMPORT_URL =
   "https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap";

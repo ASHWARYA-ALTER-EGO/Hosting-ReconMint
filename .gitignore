@@ -51,17 +51,14 @@ Thumbs.db
 .vscode/
 
 # ─────────────────────────────────────────────────────────────
-# Claude / AI assistant scaffolding (never track)
+# Editor + AI assistant scaffolding (never track)
 # ─────────────────────────────────────────────────────────────
-.claude/
-**/.claude/
-CLAUDE.md
-CLAUDE.local.md
-*.claude
-memory/
 .cursor/
 .aider*
 .continue/
+.assistant/
+.copilot/
+memory/
 
 # ─────────────────────────────────────────────────────────────
 # Working notes, roadmaps, and internal planning documents

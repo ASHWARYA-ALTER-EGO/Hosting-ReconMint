@@ -1035,7 +1035,13 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
           <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
             <MetricCard title="Match Rate" subtitle="(Reconciled)" value={`${m.reconciled_rate_pct}%`} numeric={m.reconciled_rate_pct} footnote={`${m.match_rate_pct}% matched (incl, fuzzy)`} delay={0} />
             <MetricCard title="Records Processed" value={`${m.settlement_active}`} numeric={m.settlement_active} footnote={`${m.dataset_size} rows ingested`} delay={40} />
-            <MetricCard title="Processing Time" value={`${m.elapsed_seconds}s`} numeric={m.elapsed_seconds} footnote={`Throughput: ${Math.round(m.throughput_rps).toLocaleString("en-IN")} rec/s`} delay={80} />
+            <MetricCard title="Processing Time" value={
+              m.elapsed_seconds >= 1
+                ? `${m.elapsed_seconds.toFixed(2)}s`
+                : m.elapsed_seconds > 0
+                  ? `${Math.round(m.elapsed_seconds * 1000)}ms`
+                  : "—"
+            } numeric={m.elapsed_seconds} footnote={`Throughput: ${Math.round(m.throughput_rps).toLocaleString("en-IN")} rec/s`} delay={80} />
             <MetricCard title="Amount Reconciled" value={amount} footnote="net settled, verified" delay={120} />
             <MetricCard title="Exceptions" subtitle="(Needs review)" value={`${m.exceptions_total}`} numeric={m.exceptions_total} footnote={`${exceptionsPct}% of records`} tone="negative" delay={160} />
           </section>

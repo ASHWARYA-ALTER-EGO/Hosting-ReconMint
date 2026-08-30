@@ -310,13 +310,22 @@ function TruthAnchorPanel({ runId, paymentId }) {
   const [err, setErr] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
 
-  const run = () => {
+  const run = React.useCallback(() => {
+    if (!runId || !paymentId) return;
     setBusy(true); setErr(null); setResult(null);
     api.verifyPaymentAgainstRazorpay(runId, paymentId)
       .then(setResult)
       .catch((e) => setErr(String(e.message || e)))
       .finally(() => setBusy(false));
-  };
+  }, [runId, paymentId]);
+
+  // Auto-fire the appeal the moment the tab opens for this payment. No extra
+  // click needed; the drift table simply appears. Re-fires when the drawer
+  // moves to a different exception.
+  React.useEffect(() => {
+    setResult(null); setErr(null);
+    run();
+  }, [run]);
 
   const verdictStyle = {
     matches:     { color: "#4B7B4E", label: "CSV matches live Razorpay record" },
@@ -325,6 +334,35 @@ function TruthAnchorPanel({ runId, paymentId }) {
     unreachable: { color: "#6B7660", label: "Razorpay API unreachable" },
     no_keys:     { color: "#6B7660", label: "Truth-Anchor Agent not configured" },
   };
+
+  // A backend error like "not_in_run" or plain 404 comes back as an exception in
+  // the promise chain. Reshape those into an informative state instead of a
+  // scary red banner so the drawer always tells the operator something useful.
+  const parsedErr = React.useMemo(() => {
+    if (!err) return null;
+    if (/not.?in.?run|not_found|not\s+found/i.test(err)) {
+      return {
+        tone: "#B8863B",
+        title: "Payment not present in this reconciliation",
+        detail: "The Truth-Anchor Agent could not appeal because this payment id was not part of the settlement file uploaded for this run. Try another exception.",
+      };
+    }
+    if (/missing.?keys|no_keys|not configured/i.test(err)) {
+      return {
+        tone: "#6B7660",
+        title: "Truth-Anchor Agent not configured",
+        detail: "RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are not set on the backend, so no appeal can be made.",
+      };
+    }
+    if (/failed to fetch|reach the reconmint|network/i.test(err)) {
+      return {
+        tone: "#B5432F",
+        title: "Backend unreachable",
+        detail: "The API could not be contacted. Confirm the backend is running and CORS is configured.",
+      };
+    }
+    return { tone: "#B5432F", title: "Could not appeal", detail: err };
+  }, [err]);
 
   return (
     <div className="space-y-4">
@@ -344,13 +382,16 @@ function TruthAnchorPanel({ runId, paymentId }) {
           className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold uppercase tracking-wider bg-[#3395FF] text-white border border-[#0057BA] active:scale-[0.98] disabled:opacity-50"
         >
           <i className={`fa-solid ${busy ? "fa-circle-notch fa-spin" : "fa-shield-halved"}`}></i>
-          {busy ? "Appealing…" : "Verify against Razorpay"}
+          {busy ? "Appealing…" : (result || err ? "Re-run appeal" : "Verify against Razorpay")}
         </button>
       </div>
 
-      {err && (
-        <div className="p-3 border border-[#B5432F] bg-[#fbeeea] text-[12px] text-[#B5432F]">
-          Could not appeal: {err}
+      {parsedErr && (
+        <div className="p-4 border bg-white" style={{ borderColor: parsedErr.tone }}>
+          <div className="text-[10px] uppercase tracking-[0.14em] font-bold mb-1" style={{ color: parsedErr.tone }}>
+            {parsedErr.title}
+          </div>
+          <div className="text-[12.5px] text-[#2b3527] leading-relaxed">{parsedErr.detail}</div>
         </div>
       )}
 

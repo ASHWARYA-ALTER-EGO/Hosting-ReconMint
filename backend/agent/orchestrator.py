@@ -117,6 +117,9 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
     """
     run_id = uuid.uuid4().hex[:12]
     trace: list[dict] = []
+    # Wall-clock timer for the whole reconcile. Was previously started after Ingest,
+    # so small batches under-counted (Ingest is the heaviest stage for a small file).
+    reconcile_started_at = time.perf_counter()
 
     def stage(title: str, detail: str, secs: float, extra: dict | None = None) -> None:
         s = {"title": title, "detail": detail, "ms": round(secs * 1000, 1), "status": "done"}
@@ -319,7 +322,9 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
                "Repair Agent stayed idle - clean batch"]
           )})
 
-    elapsed = time.perf_counter() - t0
+    # Full end-to-end wall-clock (was elapsed = time.perf_counter() - t0 which only
+    # covered post-Ingest work). Now includes ingest, match, fuzzy, repair, triage.
+    elapsed = time.perf_counter() - reconcile_started_at
 
     decisions: list[dict] = []
     needs_human = 0
