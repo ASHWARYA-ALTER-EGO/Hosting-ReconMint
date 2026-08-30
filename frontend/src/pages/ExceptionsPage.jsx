@@ -424,16 +424,39 @@ function DecisionsTree({ item }) {
   const attempts = item.strategy_attempts || [];
   const accepted = item.accepted_strategy;
   if (!attempts.length) {
+    // Attribute the outcome to whichever agent actually decided this record so the
+    // empty state teaches, rather than reading as "feature broken".
+    let handledBy = "the reconciliation engine";
+    let subline = "This record was resolved without the Repair Agent needing to branch.";
+    if (item.matchMethod === "exact") {
+      handledBy = "the Match Agent (exact pass)";
+      subline = "UTR and paise matched a bank credit on the same IST day. No repair needed.";
+    } else if (item.matchMethod === "fuzzy") {
+      handledBy = "the Fuzzy Agent";
+      subline = "A near match cleared the confidence gate on amount + date + UTR similarity. No repair needed.";
+    } else if (item.reason === "duplicate_payment_id" || item.resolution === "duplicate_quarantined") {
+      handledBy = "the Triage Agent";
+      subline = "This row is a duplicate settlement id, quarantined before matching runs. There's nothing to repair.";
+    } else if (item.reason && item.reason.includes("chargeback")) {
+      handledBy = "the Triage Agent";
+      subline = "Chargebacks are routed straight to human review. The Repair Agent doesn't try to match a reversal.";
+    } else if (item.reason === "ghost_credit" || item.reason === "orphan_bank_credit") {
+      handledBy = "the Triage Agent";
+      subline = "This is a bank credit with no upstream settlement. Repair Agent works on settlements, not orphan credits.";
+    }
     return (
       <div className="animate-[fadeIn_.2s_ease]">
-        <div className="bg-[#f6f4ea] border border-[#c7d1bc] p-6 text-center">
-          <i className="fa-solid fa-code-branch text-2xl text-[#9aa590] mb-2" />
-          <p className="text-sm text-[#5c6b52] font-medium">
-            Repair Agent didn't run on this record.
+        <div className="bg-[#f6f4ea] border border-[#c7d1bc] p-6">
+          <div className="flex items-center gap-2 mb-2">
+            <i className="fa-solid fa-code-branch text-[#5c6b52]" />
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#5c6b52]">Decision route for this record</p>
+          </div>
+          <p className="text-sm text-[#2b3527] mb-1">
+            Handled by <span className="font-semibold">{handledBy}</span>.
           </p>
-          <p className="text-[11px] text-[#9aa590] mt-1">
-            Exact or standard fuzzy matched it earlier, or the record isn't a settlement
-            (ghost bank credit, duplicate).
+          <p className="text-[12px] text-[#5c6b52] leading-relaxed">{subline}</p>
+          <p className="text-[10.5px] text-[#9aa590] mt-3 pt-3 border-t border-[#c7d1bc]">
+            To see a Repair Agent tree, open a row whose match method is <span className="font-mono">repair</span> or <span className="font-mono">none</span> in the exceptions list. Those are the ones where the agent branched.
           </p>
         </div>
       </div>
@@ -832,7 +855,15 @@ function Drawer({ item, runId, onClose, onResolve, resolving, onExplain, explain
                   <FeeWaterfall ledger={led} />
                 </>
               ) : (
-                <p className="text-sm text-[#9aa590] text-center py-10">No ledger breakdown available for this record.</p>
+                <div className="bg-[#f6f4ea] border border-[#c7d1bc] p-6">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[#5c6b52] mb-2">Ledger unavailable</p>
+                  <p className="text-sm text-[#2b3527] mb-1">
+                    This record is a <span className="font-semibold">{item.reason === "ghost_credit" || item.reason === "orphan_bank_credit" ? "bank credit with no matching settlement" : "non-settlement row"}</span>, so there's no fee schedule to reconstruct.
+                  </p>
+                  <p className="text-[12px] text-[#5c6b52]">
+                    Open a settlement row (amount mismatch, missing in bank, or fee anomaly) to see the gross → MDR → GST → TCS → net breakdown here.
+                  </p>
+                </div>
               )}
             </div>
           )}
@@ -985,7 +1016,19 @@ export default function ExceptionsPage({ run, showToast, onGoUpload, onAskAbout 
     let out = data.items;
     if (tab !== "All") out = out.filter((e) => e.severity === tab);
     if (search.trim()) out = out.filter((e) => e.id.toLowerCase().includes(search.trim().toLowerCase()));
-    return out;
+    // Sort so demo-rich rows bubble to the top of the list. Priority order:
+    //   1. rows where the Repair Agent actually branched (strategy_attempts present)
+    //   2. rows that carry a ledger breakdown (settlements w/ fee variance)
+    //   3. everything else
+    // Within each bucket keep original order so severity/category groupings survive.
+    const richness = (e) => {
+      const hasAttempts = Array.isArray(e.strategy_attempts) && e.strategy_attempts.length > 0;
+      const hasLedger   = e.ledger && Array.isArray(e.ledger.lines) && e.ledger.lines.length > 0;
+      if (hasAttempts) return 0;
+      if (hasLedger)   return 1;
+      return 2;
+    };
+    return [...out].sort((a, b) => richness(a) - richness(b));
   }, [data, tab, search]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
