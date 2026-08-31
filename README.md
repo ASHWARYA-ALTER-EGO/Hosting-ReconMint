@@ -4,15 +4,13 @@
 
 **[Live app](https://reconmint.pages.dev)** · **[Watch the demo](https://youtu.be/l8uax4pVOZ0)** · **[Source on GitHub](https://github.com/pradhanashwarya2122/Reconmint)**
 
-<!-- ![ReconMint Dashboard hero screenshot](docs/img/hero-dashboard.png) -->
+![ReconMint landing page](docs/img/landingpage.png)
 
 Every Indian merchant on Razorpay lives with three ledgers that never quite agree: their orders, Razorpay's settlement report, and their bank statement. Fees, GST, TCS, T+2 timing, chargebacks. All of it drifts. Most merchants still reconcile it by hand in a spreadsheet, once a month, after the fact.
 
 ReconMint is an **agent that runs the loop for them.** Seven sub-agents cooperate on the batch. Each one owns a decision, branches per record, and writes its reasoning to an audit table. The LLM is on a short leash: it can parse a question and phrase an answer, but a verifier vetoes any rupee it can't ground in the audit trail.
 
 **The AI never touches a number it can't prove.** That's the whole product.
-
-<!-- ![Live agent trace GIF](docs/img/agent-trace.gif) -->
 
 ---
 
@@ -115,19 +113,37 @@ Recall pinned to 1.0 by choice: the five false positives are all sub-paise GST r
 
 ---
 
-## Features (short list)
+## Screens
 
-**Upload page.** Three drop-zones, per-file validation, and the agent cockpit that lights up cell by cell while the run happens. Below that, a **Decision Ledger** streams the real per-record verdicts the agents wrote to SQLite.
+### Upload page
 
-**Dashboard.** Three tabs. **Cash** carries the four-bucket **Cash Position** (Cleared / In-flight / At-risk / Ghost) with Net Available, plus a dual-direction **Cash Timeline** (past cleared landings + future T+2 projections), **Tax Exposure** (MDR / GST / TCS drift), and **Fee Slab · revenue advice** (compares your effective MDR against Razorpay's published slabs). **Reconciliation** carries the breakdown, Repair Agent activity, fee composition, and source-file viewer. **Audit** carries Detection Accuracy (demo) or Quality Signals A/B/C/D (uploads) and AI cost.
+Three drop-zones for the three files, per-file validation, and a live agent panel that lights up cell by cell as each agent runs. Below the panel, a Decision Ledger streams every per-record verdict written to SQLite.
 
-**Live Razorpay card.** Always visible above the tabs. Blue, pulsing, expandable. HTTP status, latency, request-id, three real orders from your test account, verbatim.
+![Upload page with three drop zones](docs/img/upload.png)
 
-**Exceptions page.** Severity tabs, search, drawer with five tabs (Overview / Diagnose & Fix / Ledger / Decisions / Explain). The **Decisions** tab shows the Repair Agent tree for that specific payment. Resolve emits an **adjustment memo** as JSON + printable HTML.
+### The agents in flight
 
-**Ask the agent.** Spartan input box. Streaming trace shows the four steps (understand → compute → verify → phrase). Every answer carries a green Verified tick. Click **Prove it** to see the fifteen `pay_XXX` ids behind the number.
+Every agent has its own tile on the panel. Status flips from standby to running to verified as the run progresses. Hover any tile for a plain-English explanation of what that agent does and why.
 
-**CFO Brief.** One click, print-ready one-pager: Net Available, cash buckets, 7-day forecast, top three exceptions, tax exposure. Save as PDF from the browser.
+![Agent panel showing all seven agents lit up mid-run](docs/img/agents.png)
+
+### Dashboard
+
+Three tabs. **Cash** carries the four-bucket Cash Position (Cleared / In-flight / At-risk / Ghost) with a Net Available headline, a dual-direction Cash Timeline (past landings + future T+2 projections), Tax Exposure (MDR / GST / TCS drift), and Fee Slab revenue advice. **Reconciliation** carries the breakdown, Repair Agent activity, fee composition, and the source-file viewer. **Audit** carries either Detection Accuracy (demo) or Quality Signals A/B/C/D (uploads) plus the AI cost strip. The Truth-Anchor Agent card sits above all tabs; it appeals every exception to Razorpay's live API and shows the drift when your CSV disagrees.
+
+![Dashboard with Cash Position, Cash Timeline, Truth-Anchor card](docs/img/dashboard.png)
+
+### Exceptions
+
+Every record ReconMint could not confidently resolve lands here. Severity tabs, payment-id search, and a drawer with five tabs: **Overview**, **Diagnose & Fix** (a persistent checklist keyed to the exception category), **Ledger** (fee reconstruction), **Decisions** (the Repair Agent's per-record tree of attempts), and **Appeal to Razorpay** (live API tiebreaker). Resolving an exception emits an adjustment memo in JSON and printable HTML.
+
+![Exceptions page with drawer open showing Repair Agent decision tree](docs/img/exceptions.png)
+
+### Ask the agent
+
+Plain-text question box. The trace shows every step: understand intent, choose tool, compute, verify, phrase. Every answer carries a green Verified tick when the hallucination verifier approved every rupee. Click Prove-it to expand the receipts, showing the exact payment IDs behind the number.
+
+![Ask the agent page with verified answer and prove-it receipts](docs/img/asktheagent.png)
 
 ---
 
