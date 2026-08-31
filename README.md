@@ -31,48 +31,11 @@ Open `http://localhost:5173`, click **Try sample data**. The Upload page will sh
 
 ---
 
-## The seven agents
+## The agent cast
 
 Not a pipeline. A **cast of small agents**, each with one job and the authority to branch on what it sees.
 
-```mermaid
-flowchart LR
-    subgraph AGENTS["Agent cast"]
-      direction TB
-      RZP(("Razorpay-check<br/>Agent"))
-      ING(("Ingest<br/>Agent"))
-      MATCH(("Match<br/>Agent"))
-      FUZZY(("Fuzzy<br/>Agent"))
-      REPAIR(("Repair<br/>Agent"))
-      TRIAGE(("Triage<br/>Agent"))
-      AUDIT(("Audit<br/>Agent"))
-    end
-
-    RZP -->|"live API OK"| ING
-    ING -->|"clean, normalized"| MATCH
-    MATCH -->|"unmatched"| FUZZY
-    FUZZY -->|"still unmatched"| REPAIR
-    REPAIR -->|"still unresolved"| TRIAGE
-
-    REPAIR -.->|"branch 1: normalize UTR"| REPAIR
-    REPAIR -.->|"branch 2: widen date"| REPAIR
-    REPAIR -.->|"branch 3: fuzzy amount"| REPAIR
-
-    MATCH --> AUDIT
-    FUZZY --> AUDIT
-    REPAIR --> AUDIT
-    TRIAGE --> AUDIT
-
-    QA(("Q&A<br/>Agent"))
-    VERIFIER{{"Verifier<br/>vetoes any<br/>ungrounded rupee"}}
-    QA --> VERIFIER
-    AUDIT -.->|"answers grounded here"| QA
-
-    classDef agent fill:#F3F6ED,stroke:#1F2A1A,stroke-width:2px,color:#1F2A1A;
-    classDef guard fill:#B5432F,stroke:#1F2A1A,color:#fff,stroke-width:2px;
-    class RZP,ING,MATCH,FUZZY,REPAIR,TRIAGE,AUDIT,QA agent;
-    class VERIFIER guard;
-```
+![ReconMint architecture: sources on the left, eight-agent cast in the middle, outputs on the right, audit trail underneath everything](docs/img/architecture.png)
 
 **Repair Agent is the interesting one.** For every unmatched record it tries three rescue strategies in order (normalize UTR, widen date window, tight fuzzy scoring). First strategy to clear 85% confidence wins. Every attempt is written to `strategy_attempts_json` per record. Open any exception's **Decisions** tab and you see the actual tree for that specific payment: which strategy was tried, what it scored, what it decided, why.
 

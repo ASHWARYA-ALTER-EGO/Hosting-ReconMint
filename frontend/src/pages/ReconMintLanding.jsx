@@ -9,7 +9,7 @@ import React, { useEffect, useRef, useState } from "react";
  *  - Full problem section with gross-to-net ledger equation.
  *  - "Built for Razorpay" section with field register + schema fidelity receipt.
  *  - All hackathon/Track 4 references stripped. Reads as a real product.
- *  - "Watch the 2 min demo" always opens the in-page video lightbox, autoplaying.
+ *  - "Watch the demo" always opens the in-page video lightbox, autoplaying.
  *  - Premium interaction pass: spring physics, cursor-tracked borders,
  *    draw-on nav underlines, ink-splatter stamp, blur-to-sharp reveals,
  *    active press states, luminous row highlights.
@@ -845,7 +845,7 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
               <div style={{ display: "flex", gap: 12, marginBottom: 26, flexWrap: "wrap" }}>
                 <LedgerButton primary big onClick={handleGetStarted}>Try the live demo</LedgerButton>
                 {DEMO_VIDEO_ID && (
-                  <LedgerButton big onClick={handleWatchDemo}>Watch the 2 min demo</LedgerButton>
+                  <LedgerButton big onClick={handleWatchDemo}>Watch the demo</LedgerButton>
                 )}
                 <InkFillLink href={REPO_URL} extraStyle={{ fontSize: 13, padding: "10px 18px" }}>
                   Read the code &nbsp;→
