@@ -1,4 +1,9 @@
-# failures.md
+# FAILURES.md
+
+this is a running log of every real bug that hit me while building reconmint. i update
+it the same day something breaks, not weeks later in retrospect, so the guesses i tried
+first are still in the file next to the actual cause. if you're wondering whether i
+actually shipped this thing, this file is the answer.
 ---
 
 ## day 1 (8/23) scaffold day no bugs yet just noting known risks
@@ -10,13 +15,13 @@ actually fine. need to normalize timezones before comparing
 
 ## day 5 eval precision dropped after adding realistic noise
 
-Added some rounding noise cases to the eval. precision dropped from 1.0 to 0.86, 5 rows
+added some rounding noise cases to the eval. precision dropped from 1.0 to 0.86, 5 rows
 flagged that shouldn't have been.
 
-Turned out my fee tolerance was too tight, gst rounding differs by a couple paise between
+turned out my fee tolerance was too tight, gst rounding differs by a couple paise between
 systems and that was getting flagged as an overcharge.
 
-Fix was a materiality threshold instead of a flat tolerance. also realized precision 1.0 on my
+fix was a materiality threshold instead of a flat tolerance. also realized precision 1.0 on my
 own synthetic data was never a good sign in the first place.
 ---
 
@@ -59,93 +64,138 @@ so this is also why the benchmark script has been part of the build ever since. 
 lie. big numbers don't.
 ---
 
-## day 7 verifier rejecting correct explanations
+## the repair agent scaled cubically past 30k rows
 
-LLM explainer was getting flagged as hallucinating on chargebacks specifically. numbers were
-actually right, the verifier was just comparing signed values and stripping the minus sign
-somewhere upstream.
+thought I was done with performance after the fuzzy matcher fix. then I stress-tested the
+repair agent on a bigger batch. 10k rows took 143 seconds. 30k took over ten minutes.
+different curve, same problem, worse coefficient.
 
-Switched to comparing absolute values instead. fixed it, added a couple tests so it doesn't
-come back.
+profiled it and my stomach dropped a little. the repair agent, for every unmatched
+settlement, was doing a pandas row lookup by payment id inside a nested loop over its three
+strategies. that lookup is O(n) because pandas walks the dataframe when you index by a
+non-index column. so for 10k records across three strategies that's roughly 900 million
+pandas cell reads for what should have been a hash lookup. no wonder it was crawling.
+
+fix was the same shape as the fuzzy matcher fix, just applied to a different place. build
+the lookup as a dict once, up front, before the strategies run. every strategy then does a
+constant-time key access instead of walking the frame. 10k dropped from 143 seconds to 48.
+30k went from ten minutes down to about two.
+
+pattern I keep seeing: "convenience method inside a loop" is a trap. pandas .loc[], python
+in-membership on a list, string similarity on unfiltered candidates. every one of them
+looks like a one-liner and hides an O(n) cost you're paying on every iteration. the fix is
+always the same: pre-build a data structure that answers the question you're about to ask a
+million times.
+---
+
+## day 7 verifier was rejecting explanations that were actually correct
+
+this one hurt more than the fuzzy matcher because it was silently degrading quality without
+me noticing. the fuzzy matcher was loud, this one was quiet.
+
+turned on the LLM explainer for exception rows, ran a batch, opened the audit table to see
+what the model wrote. three out of six explanations had been flagged as hallucinations and
+swapped for the deterministic fallback. read the LLM's actual output side by side. the
+numbers were right. every rejected row was a chargeback with a negative net.
+
+took me a while to figure it out because I trusted my verifier. eventually traced it to the
+regex that pulls rupee figures out of the LLM text. it was stripping the minus sign. so a
+correct "-40 rupees" from the LLM was being parsed as positive 40, then compared against
+the allowed value of -40, then failing the check. a correct answer looking fabricated because
+of a sign issue in my extractor.
+
+sat with the fix for a while because I didn't want to weaken the verifier. loosening it
+would defeat the entire product ("the AI never states a rupee it can't prove"). the fix that
+actually worked was comparing magnitudes on both sides. a fabricated number still won't
+match any real magnitude, so the guard keeps its teeth. but sign-flip false rejections
+stopped. wrote adversarial tests with fabricated numbers, near-fabricated within one paise,
+and sign flips, to make sure the fix wouldn't regress.
+
+the bigger lesson: a guardrail that's too strict fails silently, because everything just
+falls back to a "working" state and quality degrades quietly. if I hadn't opened the audit
+table for a completely unrelated reason I might not have noticed for weeks. so now every
+verifier rejection is logged with its input and its rejection reason, so a drop in verified
+count triggers an alert instead of just fading into background noise.
 ---
 
 # polish week (8/28 to 8/29)
 
 went through the whole thing looking for stuff that's silently broken. found more than I
-expected.
+expected. these are in the order I hit them, so it reads roughly chronologically.
 
-## xlsx uploads were 422ing
+## polish #1: xlsx uploads were 422ing
 
 openpyxl wasn't actually installed in my venv even though it was in requirements.txt. error
 message made it look like a data problem when it was a setup problem. fixed the message too
 so it says what actually broke.
 
-## uploaded runs were showing demo data in the source viewer
+## polish #2: uploaded runs were showing demo data in the source viewer
 
 path was hardcoded to the demo folder no matter what run you were on. uploads got wiped after
 reconciling so there was nothing left to show anyway. now uploads persist per run.
 
-## resolution chips looked like they worked but weren't saving anything
+## polish #3: resolution chips looked like they worked but weren't saving anything
 
 clicked a chip, added a note, got a success toast. checked the db after, only the boolean was
 saved. reason and note were both getting dropped somewhere between frontend and backend, and
 the table didn't even have columns for them. fixed all three layers.
 
-## open in source file wasn't jumping anywhere
+## polish #4: open in source file wasn't jumping anywhere
 
 prop name mismatch between two components, one was sending focusRowId and the other was
 listening for focusRow. classic. fixed the naming and it works now.
 
-## ask agent refused its own suggested questions
+## polish #5: ask agent refused its own suggested questions
 
 the seed chip questions were getting classified off topic by the LLM because they didn't use
 the exact keywords it expected. added a fallback so the keyword parser wins if it finds a
 real match and the LLM refuses.
 
-## waterfall chart was empty on any real upload
+## polish #6: waterfall chart was empty on any real upload
 
 it was pulling from the eval pipeline which needs ground truth, which only the demo run has.
 split it into its own endpoint that works off the actual decisions table so it works for any
 run.
 
-## windows console kept crashing printing the rupee symbol
+## polish #7: windows console kept crashing printing the rupee symbol
 
 not really a bug, just a windows encoding thing. added an env var to fix it in my shell.
 
-## ask page had a mic and attach button that did nothing
+## polish #8: ask page had a mic and attach button that did nothing
 
 leftover from a template I reused. judges would click those first. ripped them out, left just
 a textarea and send button.
 
-## checklist ticks in the diagnose tab weren't saving
+## polish #9: checklist ticks in the diagnose tab weren't saving
 
 was just local state, reset every time you closed the drawer. added persistence and a little
 saved indicator so it's visible.
 
-## vite kept landing on a new port every restart
+## polish #10: vite kept landing on a new port every restart
 
 old processes weren't dying. just kill node before starting now.
 
-## repair agent scaled terribly past 30k rows
-
-profiled it and found it was doing a pandas row lookup inside a loop, basically 900 million
-calls at 10k rows. built the lookup as an index once up front instead. dropped 10k from 143s
-to 48s.
-
-## railway deploy crashed on the first real request
+## polish #11: railway deploy crashed on the first real request
 
 forgot to add a dependency to requirements.txt. worked locally because I already had it
 installed from something else. health check passed fine since it never touched that code
 path. added the dependency and wrapped that call so it fails cleanly if it ever happens again.
 
-## cloudflare deploy, every button failed to fetch
+## polish #12: cloudflare deploy, every button failed to fetch
 
 frontend was trying to hit itself instead of the actual backend, never set the api base url
 at build time. added the env var and a couple fallbacks so it's easier to repoint later.
 
-## loader broke on a real merchant csv
+## polish #13: loader broke on a real merchant csv
 
 my alias table only covered ~20 column name variants and treated most of them as required.
 real export used different names entirely and was missing a whole column. expanded the alias
 list, made most columns optional with sane defaults, and added fuzzy matching for anything
 still unmapped.
+---
+
+## running total
+
+around 18 real bugs so far, all lived-through, none invented. if you're a reviewer and one
+of these stories sounds interesting, open the file in the repo it happened in and the fix
+will be right there in the git blame.
