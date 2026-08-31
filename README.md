@@ -79,7 +79,7 @@ cd frontend && npm run dev
 
 If port 5173 is taken, Vite will land on 5174 or 5175 automatically and print the URL.
 
-**Don't have your own CSVs?** Grab a sample batch (orders + settlement + bank) from Google Drive: **[Download sample files](https://drive.google.com/drive/folders/1P3ob4rXyFbA94IAP4DG4Oi_9xi8wpQeE?usp=sharing)**. Drop all three into the Upload page and hit Reconcile.
+**Don't have your own CSVs?** Grab a sample batch (orders + settlement + bank) from Google Drive: **[Download sample files](https://drive.google.com/drive/folders/1P3ob4rXyFbA94IAP4DG4Oi_9xi8wpQeE?usp=sharing)**. Drop all three into the Upload page and hit Reconcile. These are the same files used in the video demo, so you can follow along step for step.
 
 ---
 
