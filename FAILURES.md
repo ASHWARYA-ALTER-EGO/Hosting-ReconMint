@@ -26,74 +26,66 @@ my own synthetic data was never a good sign in the first place.
 
 this one deserves its own section because it's the bug that taught me the most.
 
-first time I ran the benchmark I felt good. 500 records reconciled in under a second. bumped
-it to 2000, thirteen seconds. bumped it to 10k just to see. 116 seconds. sat there staring
-at the curve. 500 → 1s, 2000 → 13s, 10k → 116s. that's not slow, that's quadratic. and
-quadratic on a reconciliation tool is a death sentence, because real merchants have hundreds
-of thousands of payments a month, not five hundred.
+first benchmark I ran, 500 records reconciled in under a second. bumped to 2000, thirteen
+seconds. bumped to 10k just to see. 116 seconds. 500 → 1s, 2000 → 13s, 10k → 116s. that's
+not slow, that's quadratic. real merchants have hundreds of thousands of payments a month,
+not five hundred.
 
 opened the matcher expecting some clever bug. wasn't clever at all. for every unmatched
-settlement I was walking every single bank row, running string similarity on the reference
-number of every pair. classic nested loop. what made it embarrassing is that the amount
-filter was ALREADY sitting right there in the code, saying "only consider bank rows within
-a rupee of this settlement." so the code knew which rows were real candidates. it just chose
-to score all the other ones anyway on the way to throwing them out. logically filtered but
-not computationally filtered.
+settlement I was walking every bank row, running string similarity on the reference number
+of every pair. classic nested loop. what made it embarrassing is that the amount filter was
+already right there in the code, restricting real candidates to within a rupee. so the code
+knew which rows were candidates. it just chose to score all the other ones anyway on the way
+to throwing them out. logically filtered, not computationally filtered.
 
-fix was small. before the matcher runs, bucket every bank row by whole-rupee amount into a
-hash map. each settlement then only scans its own bucket and the two neighbours. 10k dropped
-from 116 seconds to 14. asserted the result set was identical, so I hadn't traded correctness
-for speed. every match came back the same. the whole 100+ second gap was pure overhead.
+fix was small. bucket every bank row by whole-rupee amount into a hash map once, up front.
+each settlement then only scans its own bucket. 10k dropped from 116 seconds to 14. asserted
+the result set was identical so I hadn't traded correctness for speed.
 
-lesson I keep coming back to: if a filter is narrowing candidates in your head, make sure
-it's narrowing them in the loop. logical shortcuts don't run. data structures do.
+lesson: if a filter is narrowing candidates in your head, make sure it's narrowing them in
+the loop. logical shortcuts don't run. data structures do.
 ---
 
 ## the repair agent scaled cubically past 30k
 
-thought I was done with performance after the fuzzy fix. stress-tested the repair agent on
-a bigger batch. 10k took 143 seconds. 30k took over ten minutes. different curve, same
-problem, worse coefficient.
+thought I was done with performance after the fuzzy fix. stress-tested repair on a bigger
+batch. 10k took 143 seconds. 30k took over ten minutes.
 
-profiled it and my stomach dropped a little. for every unmatched settlement, the repair
-agent was doing a pandas row lookup by payment id, inside a nested loop over its three
-strategies. that lookup is O(n) because pandas walks the frame when you index a
-non-index column. so 10k records across three strategies is roughly 900 million pandas
-cell reads.
+profiled it. for every unmatched settlement, the repair agent was doing a pandas row lookup
+by payment id, inside a nested loop over its three strategies. that lookup is O(n) because
+pandas walks the frame when you index a non-index column. so 10k records across three
+strategies is roughly 900 million pandas cell reads.
 
-fix was the same shape as before: build the lookup as a dict once, up front, then every
-strategy does a constant-time key access. 10k dropped from 143 seconds to 48. 30k from ten
+fix was the same shape as the fuzzy one: build the lookup as a dict once, up front. every
+strategy then does constant-time key access. 10k dropped from 143s to 48. 30k from ten
 minutes to about two.
 
-pattern I keep seeing: "convenience method inside a loop" is a trap. pandas .loc, python
-in-membership on a list, string similarity on unfiltered candidates. every one looks like a
-one-liner and hides an O(n) cost per iteration.
+pattern: "convenience method inside a loop" is a trap. pandas .loc, python `in` on a list,
+string similarity on unfiltered candidates. each hides an O(n) cost per iteration.
 ---
 
 ## day 7 verifier was rejecting explanations that were actually correct
 
-this one hurt more than the fuzzy matcher because it was silently degrading quality without
-me noticing. the fuzzy matcher was loud, this one was quiet.
+hurt more than the fuzzy matcher because it was silently degrading quality. the fuzzy
+matcher was loud, this one was quiet.
 
 turned on the LLM explainer, ran a batch, opened the audit table. three out of six
 explanations flagged as hallucinations and swapped for the deterministic fallback. read the
-LLM's actual output, the numbers were right. every rejected row was a chargeback with a
-negative net.
+raw LLM output, the numbers were right. every rejected row was a chargeback with a negative
+net.
 
-took a while to figure out because I trusted my verifier. traced it to the regex that pulls
-rupee figures out of the LLM text. it was stripping the minus sign. so a correct "-40" was
-being parsed as 40, compared against the allowed value of -40, and failing. a correct
-answer looking fabricated because of a sign issue in my extractor.
+traced it to the regex that pulls rupee figures out of the LLM text. it was stripping the
+minus sign. so a correct "-40" was parsed as 40, compared against the allowed value of -40,
+and failed. a correct answer looking fabricated because of a sign bug in my extractor.
 
 sat with the fix for a while because I didn't want to weaken the verifier. loosening it
-defeats the whole product. fix that actually worked was comparing magnitudes on both sides.
-a fabricated number still won't match any real magnitude, so the guard keeps its teeth. but
-sign-flip false rejections stopped. wrote adversarial tests so it can't come back.
+defeats the whole product. fix that worked was comparing magnitudes on both sides. a
+fabricated number still won't match any real magnitude, so the guard keeps its teeth.
+adversarial tests locked it in.
 
 bigger lesson: a guardrail that's too strict fails silently, because everything falls back
 to a "working" state and quality drops quietly. if I hadn't opened the audit table for a
-different reason I might not have caught it for weeks. every rejection is now logged so a
-drop in verified count triggers an alert instead of fading into background noise.
+different reason I might not have caught it for weeks. every rejection is now logged.
 ---
 
 # polish week (8/28 to 8/29)
