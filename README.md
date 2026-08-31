@@ -2,7 +2,19 @@
 
 **An AI Finance Controller agent for the books and the cash.** Solo submission to the **Razorpay AI Buildathon 2026 · Track 4**.
 
-**[Live app](https://reconmint.pages.dev)** · **[Watch the demo](https://youtu.be/l8uax4pVOZ0)** · **[Source on GitHub](https://github.com/pradhanashwarya2122/Reconmint)**
+<p align="center">
+  <a href="https://reconmint.pages.dev">
+    <img alt="Live app" src="https://img.shields.io/badge/%E2%86%92%20Try%20the%20live%20app-reconmint.pages.dev-1F2A1A?style=for-the-badge&labelColor=1F2A1A&color=4B7B4E" height="42">
+  </a>
+  &nbsp;
+  <a href="https://youtu.be/l8uax4pVOZ0">
+    <img alt="Watch the demo on YouTube" src="https://img.shields.io/badge/%E2%96%B6%20Watch%20the%205%20min%20demo-YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white&labelColor=1F2A1A" height="42">
+  </a>
+  &nbsp;
+  <a href="https://github.com/pradhanashwarya2122/Reconmint">
+    <img alt="Source on GitHub" src="https://img.shields.io/badge/Source%20on%20GitHub-pradhanashwarya2122%2FReconmint-1F2A1A?style=for-the-badge&logo=github&logoColor=white&labelColor=1F2A1A&color=6B7660" height="42">
+  </a>
+</p>
 
 ![ReconMint landing page](docs/img/landingpage.png)
 
