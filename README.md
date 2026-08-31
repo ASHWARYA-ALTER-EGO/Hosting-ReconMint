@@ -79,6 +79,8 @@ cd frontend && npm run dev
 
 If port 5173 is taken, Vite will land on 5174 or 5175 automatically and print the URL.
 
+**Don't have your own CSVs?** Grab a sample batch (orders + settlement + bank) from Google Drive: **[Download sample files](https://drive.google.com/drive/folders/1P3ob4rXyFbA94IAP4DG4Oi_9xi8wpQeE?usp=sharing)**. Drop all three into the Upload page and hit Reconcile.
+
 ---
 
 ## The agent cast
@@ -89,7 +91,13 @@ Not a pipeline. A **cast of small agents**, each with one job and the authority 
 
 **Repair Agent is the interesting one.** For every unmatched record it tries three rescue strategies in order (normalize UTR, widen date window, tight fuzzy scoring). First strategy to clear 85% confidence wins. Every attempt is written to `strategy_attempts_json` per record. Open any exception's **Decisions** tab and you see the actual tree for that specific payment: which strategy was tried, what it scored, what it decided, why.
 
+![Repair Agent decision tree for one exception showing three strategies attempted with confidence scores](docs/img/repair-agent.png)
+
 That per-record branching is why this is an agent, not a pipeline.
+
+**Truth-Anchor Agent is the second verifier.** Alongside the hallucination verifier that guards what the LLM says, this one guards the source data itself. For every exception, it appeals to Razorpay's live API and treats the API's answer as ground truth. If the merchant's CSV disagrees on gross, fee, or tax, the agent surfaces the drift line by line. Catches stale merchant exports that no amount of three-way file matching could reveal.
+
+![Truth-Anchor Agent card showing live diff between CSV and Razorpay API for one payment](docs/img/truth-anchor.png)
 
 ---
 
