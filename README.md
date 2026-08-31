@@ -1,4 +1,15 @@
-# ReconMint
+<pre align="center">
+★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★
+
+ ____                      __  __ _       _
+|  _ \ ___  ___ ___  _ __ |  \/  (_)_ __ | |_
+| |_) / _ \/ __/ _ \| '_ \| |\/| | | '_ \| __|
+|  _ &lt;  __/ (_| (_) | | | | |  | | | | | | |_
+|_| \_\___|\___\___/|_| |_|_|  |_|_|_| |_|\__|
+
+    ★ Payment Reconciliation, Automated ★
+★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★
+</pre>
 
 **An AI Finance Controller agent for the books and the cash.** Solo submission to the **Razorpay AI Buildathon 2026 · Track 4**.
 
