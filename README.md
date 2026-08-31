@@ -2,6 +2,8 @@
 
 **An AI Finance Controller agent for the books and the cash.** Solo submission to the **Razorpay AI Buildathon 2026 · Track 4**.
 
+**[Live app](https://reconmint.pages.dev)** · **[Watch the demo](https://youtu.be/l8uax4pVOZ0)** · **[Source on GitHub](https://github.com/pradhanashwarya2122/Reconmint)**
+
 <!-- ![ReconMint Dashboard hero screenshot](docs/img/hero-dashboard.png) -->
 
 Every Indian merchant on Razorpay lives with three ledgers that never quite agree: their orders, Razorpay's settlement report, and their bank statement. Fees, GST, TCS, T+2 timing, chargebacks. All of it drifts. Most merchants still reconcile it by hand in a spreadsheet, once a month, after the fact.

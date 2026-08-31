@@ -18,7 +18,7 @@ import React, { useEffect, useRef, useState } from "react";
 const YOUR_NAME = "Ashwarya Pradhan";
 const YOUR_GITHUB_URL = "https://github.com/pradhanashwarya2122";
 const YOUR_GITHUB_HANDLE = "@pradhanashwarya2122";
-const REPO_URL = "https://github.com/pradhanashwarya2122";
+const REPO_URL = "https://github.com/pradhanashwarya2122/Reconmint";
 // YouTube video id for the pitch demo. When set, the landing page renders
 // a "Watch demo" button that opens an autoplaying in-page lightbox.
 const DEMO_VIDEO_ID = "l8uax4pVOZ0";
