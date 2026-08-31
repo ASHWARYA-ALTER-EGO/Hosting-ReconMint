@@ -788,8 +788,15 @@ def _resolve_payment_via_rzp(pid: str) -> tuple[str, dict | None]:
         if res.payments:
             return ("ok", res.payments[0])
         return ("not_found", None)
+    # Razorpay treats "unknown payment id" as HTTP 400 BAD_REQUEST_ERROR with a
+    # human-readable message ("The id provided does not exist"), NOT as 404.
+    # Anything whose detail matches that pattern is a ghost id, not an outage.
     if res.status_code == 404:
         return ("not_found", None)
+    if res.status_code == 400 and res.detail:
+        d = res.detail.lower()
+        if "does not exist" in d or "no such id" in d or "invalid id" in d:
+            return ("not_found", None)
     return ("unreachable", None)
 
 
