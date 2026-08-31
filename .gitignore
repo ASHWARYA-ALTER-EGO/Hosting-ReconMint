@@ -53,6 +53,11 @@ Thumbs.db
 # ─────────────────────────────────────────────────────────────
 # Editor + AI assistant scaffolding (never track)
 # ─────────────────────────────────────────────────────────────
+.claude/
+**/.claude/
+CLAUDE.md
+CLAUDE.local.md
+*.claude
 .cursor/
 .aider*
 .continue/
