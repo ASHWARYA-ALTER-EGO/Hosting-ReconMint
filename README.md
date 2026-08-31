@@ -14,20 +14,47 @@ ReconMint is an **agent that runs the loop for them.** Seven sub-agents cooperat
 
 ---
 
-## Try it in 30 seconds
+## Run it locally in five minutes
+
+You need Python 3.11+ and Node 18+. That's it. No Docker, no cloud account, no database to provision.
+
+**1. Clone and install**
 
 ```bash
 git clone https://github.com/pradhanashwarya2122/reconmint.git
 cd reconmint
 pip install -r requirements.txt
 cd frontend && npm install && cd ..
-cp .env.example .env         # add OPENAI_API_KEY (Razorpay test keys optional)
-
-python -m uvicorn backend.api.main:app --port 8000   # terminal 1
-cd frontend && npm run dev                           # terminal 2
 ```
 
-Open `http://localhost:5173`, click **Try sample data**. The Upload page will show every agent lighting up in real time.
+**2. Add your API keys**
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and paste:
+
+- **OPENAI_API_KEY** — get one at [platform.openai.com/api-keys](https://platform.openai.com/api-keys). Any key with a few dollars of credit is enough; the whole demo costs pennies.
+- **RAZORPAY_KEY_ID** and **RAZORPAY_KEY_SECRET** — grab TEST-MODE keys from [dashboard.razorpay.com/app/website-app-settings/api-keys](https://dashboard.razorpay.com/app/website-app-settings/api-keys) after switching to Test Mode in the top-right. Test keys start with `rzp_test_`.
+
+Both are optional. If you leave them out, the reconciliation loop still runs; only the LLM-powered explanations and the Truth-Anchor Agent's live appeals are disabled, and each of those degrades to a clear "not configured" state rather than crashing.
+
+**3. Start both servers (two terminals)**
+
+```bash
+# terminal one, from the repo root
+python -m uvicorn backend.api.main:app --port 8000 --reload
+```
+
+```bash
+# terminal two, from the repo root
+cd frontend && npm run dev
+```
+
+**4. Open** [`http://localhost:5173`](http://localhost:5173), click **Try sample data**, and watch every agent light up in real time. Or drop three of your own CSVs into the Upload page.
+
+If port 5173 is taken, Vite will land on 5174 or 5175 automatically and print the URL.
 
 ---
 
@@ -135,17 +162,31 @@ make test                        # verifier + engine tests
 
 ```
 backend/
-  agent/          seven agents + LLM client + hallucination verifier + audit trail
-  api/            FastAPI endpoints + Pydantic models
-  engine/         loader, matcher, fuzzy pass, fee reconstruction
-  eval/           ground-truth harness (F1 on demo)
-  generator/      synthetic dataset generator
+  agent/          the agents themselves + audit trail + LLM plumbing
+  api/            FastAPI endpoints + Pydantic response models
+  engine/         deterministic money math (loader, matcher, fuzzy, fee reconstruction)
+  eval/           ground-truth harness (produces the F1 on the demo dataset)
+  generator/      synthetic dataset generator + hidden answer key
 frontend/         React + Vite, ledger-paper aesthetic
-scripts/          stress benchmark, live probe, evals
+scripts/          stress benchmark, live Razorpay probe, eval runner
 tests/            verifier + engine
-docs/             Razorpay validation notes
-FAILURES.md       every bug that hit me, hand-written
+docs/             Razorpay schema validation notes + architecture image
+FAILURES.md       every bug that hit me during the build, in my own words
 ```
+
+## The main backend files (if you're reading the code)
+
+Start here if you're reviewing what the agents actually do. Every file listed is small and readable end-to-end.
+
+- **`backend/agent/orchestrator.py`** — the loop that runs the whole reconciliation. Reads the three files, calls each agent in order, threads the record between them, and writes the audit trail. Every "stage" you see in the frontend cockpit is one function call from here.
+- **`backend/agent/repair.py`** — the Repair Agent. Three strategy functions (`normalize_utr`, `widen_date_window`, `amount_utr_fuzzy`), the 85 percent confidence gate, the first-wins loop, and the amount-bucket + UTR indexes that make it near-linear. This is the file to open if you want to see what "an agent branching per record" looks like in code.
+- **`backend/agent/qa.py`** — the Q&A agent. Parses intent (LLM + keyword fallback), picks a deterministic computation, runs it, hands the result to the verifier before phrasing the sentence. Never touches raw file bytes so there's nothing for a prompt injection to hide in.
+- **`backend/agent/verifier.py`** — the hallucination verifier. Extracts every rupee figure the LLM wrote and magnitude-compares them against the set of computed values the deterministic layer produced. If any figure doesn't match, the LLM's phrasing is rejected and the deterministic answer is used instead. This is the guard rail.
+- **`backend/agent/razorpay_client.py`** — the live Razorpay API client. Used at ingest to prove the pipeline is grounded, and per-exception by the Truth-Anchor Agent. Timeout-bounded, degrades cleanly if keys are missing.
+- **`backend/agent/audit.py`** — the SQLite audit trail. Every decision, every attempt, every LLM call with its cost and verifier verdict, all in one table you can query.
+- **`backend/api/main.py`** — the FastAPI layer. All endpoints live here. If you want to see what the frontend fetches, this is the file.
+- **`backend/engine/loader.py`** — reads CSV or Excel, detects header rows through preambles, fuzzy-maps 60+ merchant-export column aliases to the canonical schema, coerces amounts to integer paise, normalizes dates to Asia/Kolkata.
+- **`backend/engine/matcher.py`** — the exact-match pass. Independently reconstructs the fee schedule (MDR + GST-on-MDR + TCS) and joins on UTR + amount + IST day.
 
 ---
 

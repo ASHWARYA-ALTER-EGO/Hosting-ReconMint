@@ -20,13 +20,43 @@ Fix was a materiality threshold instead of a flat tolerance. also realized preci
 own synthetic data was never a good sign in the first place.
 ---
 
-## fuzzy matcher was O(n^2)
+## the day my fuzzy matcher fell apart at 10k rows
 
-Ran the benchmark for the first time, 10k rows took almost 2 minutes. way too slow.
+this one deserves its own section because it's the bug that taught me the most.
 
-Was scoring every unmatched row against every bank row even though the amount gate already
-narrowed things down. built an index by amount bucket instead so it only checks nearby
-candidates. dropped 10k down to like 14s.
+first time I ran the benchmark I felt pretty good. 500 records reconciled in under a second.
+figured we were fine. then I bumped it to 2000. thirteen seconds. huh. bumped it to 10k just
+to see. 116 seconds. almost two full minutes for what should have been a warm-up run.
+
+sat there staring at the curve. 500 → 1s. 2000 → 13s. 10k → 116s. that's not slow, that's
+quadratic. and quadratic on a reconciliation tool is a death sentence, because real merchants
+don't have 500 payments a month, they have tens or hundreds of thousands. if I couldn't do
+10k in a demo I definitely couldn't do 100k for a real customer.
+
+opened the matcher expecting some clever bug. wasn't clever at all. for every unmatched
+settlement I was walking every single bank row, running a string similarity check on the
+reference number of every pair. classic nested loop. what made it embarrassing is that the
+amount filter was ALREADY sitting right there in the code, saying "only consider bank rows
+within a rupee of this settlement." so my code KNEW which rows were real candidates. it just
+also chose to score all the other ones anyway, on the way to throwing them out. paying full
+price for work I was going to discard. that's what I mean by "logically filtered but not
+computationally filtered." the intent was right. the execution wasted 99 percent of the CPU.
+
+fix was almost embarrassingly small. before the matcher runs, bucket every bank row by its
+whole-rupee amount into a hash map. when a settlement shows up, only look at its own bucket
+and the two neighbouring ones. that turns "score against everything" into "score against
+maybe five candidates." same logic, same accuracy, orders of magnitude fewer comparisons.
+
+ran the benchmark again. 10k dropped from 116 seconds to 14. asserted the match result was
+identical to the old version so I knew I hadn't traded correctness for speed. it wasn't. every
+single match came back the same, just faster. so the "slow" version was doing exactly the
+same work as the "fast" version, just wasteful. the whole 100+ second gap was pure overhead.
+
+the lesson I keep coming back to is this: if a filter is already narrowing down candidates in
+your head, make sure it's actually narrowing them in the loop. logical shortcuts don't run.
+data structures do. this bug never would have shown up if I'd only tested on small batches,
+so this is also why the benchmark script has been part of the build ever since. small numbers
+lie. big numbers don't.
 ---
 
 ## day 7 verifier rejecting correct explanations
