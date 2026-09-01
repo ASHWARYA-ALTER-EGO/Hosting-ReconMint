@@ -696,7 +696,7 @@ function Drawer({ item, runId, onClose, onResolve, resolving, onExplain, explain
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        className={`w-[540px] max-w-[94vw] bg-[#f6f4ea] border-l-2 border-[#2b3527] shadow-[-8px_0_0_0_rgba(43,53,39,0.06)] z-10 flex flex-col flex-shrink-0 h-full font-mono transition-transform duration-[220ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${visible ? "translate-x-0" : "translate-x-full"}`}
+        className={`fixed xl:relative top-[52px] xl:top-0 bottom-[64px] xl:bottom-0 right-0 w-full xl:w-[540px] xl:max-w-[94vw] bg-[#f6f4ea] border-l-2 border-[#2b3527] shadow-[-8px_0_0_0_rgba(43,53,39,0.06)] z-[45] xl:z-10 flex flex-col flex-shrink-0 xl:h-full font-mono transition-transform duration-[220ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${visible ? "translate-x-0" : "translate-x-full"}`}
       >
         {/* Header */}
         <div className="px-7 pt-6 pb-4 border-b-2 border-[#2b3527]">
@@ -1011,6 +1011,10 @@ export default function ExceptionsPage({ run, showToast, onGoUpload, onAskAbout 
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Skip the "click any cell" hint on narrow viewports. The popover renders
+    // above the table with a fixed 288px width and overlaps critical content.
+    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+    if (isMobile) return;
     if (!window.localStorage.getItem(TIP_KEY)) {
       const t = setTimeout(() => setShowHint(true), 900);
       return () => clearTimeout(t);
@@ -1138,8 +1142,8 @@ export default function ExceptionsPage({ run, showToast, onGoUpload, onAskAbout 
   return (
     <div className="flex h-full overflow-hidden font-mono ledger-stripes">
       <PunchRail side="left" />
-      <div className="flex-1 flex flex-col min-w-0 px-8 py-8 overflow-y-auto relative">
-        <header className="mb-6 flex justify-between items-start">
+      <div className="flex-1 flex flex-col min-w-0 px-3 md:px-8 py-4 md:py-8 overflow-y-auto relative">
+        <header className="mb-4 md:mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
           <div className="relative">
             <div className="flex items-center gap-2 text-[10px] font-bold text-[#b5452f] uppercase tracking-[0.15em] mb-1.5">
               <span>· Reconciliation Ledger, Exceptions</span>
@@ -1165,17 +1169,17 @@ export default function ExceptionsPage({ run, showToast, onGoUpload, onAskAbout 
           </div>
           <button
             onClick={() => setShowSource((s) => { if (s) setSourceFocus(null); return !s; })}
-            className={`flex items-center gap-2 px-3.5 py-2.5 text-sm font-bold uppercase tracking-wide border transition-all duration-150 active:scale-[0.96] ${
+            className={`self-start flex items-center gap-2 px-3.5 py-2.5 text-sm font-bold uppercase tracking-wide border transition-all duration-150 active:scale-[0.96] flex-shrink-0 ${
               showSource ? "bg-[#2b3527] text-[#eef2e8] border-[#2b3527]" : "bg-[#f6f4ea] text-[#2b3527] border-[#c7d1bc] hover:border-[#2b3527]"
             }`}
           >
             <i className="fa-solid fa-file-excel"></i>
-            {showSource ? "Hide source data" : "View source data"}
+            {showSource ? "Hide source" : "View source"}
           </button>
         </header>
 
         <div className="bg-[#f6f4ea] border border-[#2b3527] flex-1 min-h-[440px] flex flex-col overflow-hidden">
-          <div className={`px-6 pt-5 pb-3 flex flex-wrap gap-4 justify-between items-end border-b border-[#c7d1bc] transition-shadow duration-200 relative z-[1] ${scrolled ? "shadow-[0_6px_10px_-10px_rgba(43,53,39,0.4)]" : ""}`}>
+          <div className={`px-3 md:px-6 pt-4 md:pt-5 pb-3 flex flex-wrap gap-3 md:gap-4 justify-between items-end border-b border-[#c7d1bc] transition-shadow duration-200 relative z-[1] ${scrolled ? "shadow-[0_6px_10px_-10px_rgba(43,53,39,0.4)]" : ""}`}>
             <div className="flex space-x-1 sm:space-x-6 text-sm overflow-x-auto no-scrollbar">
               {[["All", counts.all], ["Critical", counts.critical], ["Warning", counts.warning], ["Info", counts.info]].map(([label, n]) => (
                 <button key={label} onClick={() => setTab(label)}

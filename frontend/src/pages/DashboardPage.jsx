@@ -250,14 +250,24 @@ function useOneTimeHint(key) {
 function InfoHint({ hintKey, message, className = "" }) {
   const { dismissed, ready, dismiss } = useOneTimeHint(hintKey);
   const [open, setOpen] = useState(false);
+  // Detect mobile - the hint's fixed tooltip width and centered offset overflows
+  // narrow viewports, so we skip it entirely and let users discover on their own.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    setIsMobile(mq.matches);
+    const onChange = (e) => setIsMobile(e.matches);
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, []);
 
   useEffect(() => {
-    if (!ready || dismissed) return;
+    if (!ready || dismissed || isMobile) return;
     const t = setTimeout(() => setOpen(true), 1000);
     return () => clearTimeout(t);
-  }, [ready, dismissed]);
+  }, [ready, dismissed, isMobile]);
 
-  if (!ready || dismissed) return null;
+  if (!ready || dismissed || isMobile) return null;
 
   return (
     <div className={`relative inline-flex font-mono ${className}`}>
@@ -954,14 +964,14 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
       />
 
       <header
-        className="backdrop-blur-sm px-6 pt-4 pb-0 sticky top-0 z-20 relative"
+        className="backdrop-blur-sm px-4 md:px-6 pt-4 pb-0 sticky top-0 z-20 relative"
         style={{ background: "rgba(251,251,243,0.92)" }}
       >
-        <div className="dash-header-in flex justify-between items-center gap-4 pb-4">
-          <div>
-            <div className="flex items-center gap-3">
+        <div className="dash-header-in flex flex-wrap justify-between items-center gap-3 pb-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1
-                className="text-[27px] font-bold tracking-tight leading-none"
+                className="text-[22px] md:text-[27px] font-bold tracking-tight leading-none"
                 style={{ color: C.ink, fontFamily: FONT_DISPLAY, letterSpacing: "-0.01em" }}
               >
                 Reconciliation Overview
@@ -991,7 +1001,7 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
               <span>{m.settlement_active} records · {m.exceptions_total} exceptions</span>
             </div>
           </div>
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-2.5 flex-shrink-0 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
             <HeaderButton
               onClick={() => {
                 // Opened without "noopener" (deliberately) so we keep a same-origin
@@ -1030,9 +1040,9 @@ export default function DashboardPage({ run, evalData, onExport, onGoUpload, onG
       </header>
 
       <div ref={scrollPaneRef} className="flex-1 overflow-y-auto relative">
-        <div className="p-6 space-y-6">
+        <div className="p-3 md:p-6 space-y-4 md:space-y-6">
           {/* Always-on metric strip - the operator's landing view. */}
-          <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+          <section className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-5 gap-3 md:gap-4">
             <MetricCard title="Match Rate" subtitle="(Reconciled)" value={`${m.reconciled_rate_pct}%`} numeric={m.reconciled_rate_pct} footnote={`${m.match_rate_pct}% matched (incl, fuzzy)`} delay={0} />
             <MetricCard title="Records Processed" value={`${m.settlement_active}`} numeric={m.settlement_active} footnote={`${m.dataset_size} rows ingested`} delay={40} />
             <MetricCard title="Processing Time" value={

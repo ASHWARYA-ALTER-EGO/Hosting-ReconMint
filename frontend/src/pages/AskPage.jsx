@@ -750,7 +750,7 @@ export default function AskPage({ run, showToast, onGoUpload, preload }) {
       {/* header — ledger letterhead, not a flat white bar */}
       <header className="relative z-10 overflow-hidden">
         <div
-          className="px-9 pt-4 pb-3 relative"
+          className="px-4 md:px-9 pt-4 pb-3 relative"
           style={{
             background: "linear-gradient(180deg, #EFF3E4 0%, #F5F7EE 65%, #FBFBF3 100%)",
           }}
@@ -810,7 +810,7 @@ export default function AskPage({ run, showToast, onGoUpload, preload }) {
       {/* chat scroll area, faint ledger stripes */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-7 py-7 relative z-10"
+        className="flex-1 overflow-y-auto px-3 md:px-7 py-4 md:py-7 relative z-10"
         style={{
           backgroundImage: "repeating-linear-gradient(180deg, #F3F6ED 0px, #F3F6ED 28px, #E9F0DC 28px, #E9F0DC 56px)",
         }}
@@ -853,7 +853,7 @@ export default function AskPage({ run, showToast, onGoUpload, preload }) {
       </div>
 
       {/* input area */}
-      <div className="border-t px-7 py-3 relative z-10" style={{ borderColor: "#E7EEDD", background: "#FBFBF3" }}>
+      <div className="border-t px-3 md:px-7 py-3 relative z-10" style={{ borderColor: "#E7EEDD", background: "#FBFBF3" }}>
         <div className="max-w-3xl mx-auto">
           {examples.length > 0 && history.length === 0 && (
             <ExampleChips examples={examples} onAsk={ask} disabled={busy} />

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import Sidebar from "./components/Sidebar.jsx";
+import MobileNav from "./components/MobileNav.jsx";
 import Toast from "./components/Toast.jsx";
 import UploadPage from "./pages/UploadPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
@@ -205,8 +206,13 @@ export default function AppShell() {
 
   return (
     <div className="h-screen flex overflow-hidden">
-      <Sidebar active={view} onNavigate={setView} exceptionCount={exceptionCount} onHome={() => setView("landing")} />
-      <main className="flex-1 overflow-hidden bg-[#fcfcfc]">
+      {/* Desktop sidebar (md+). Hidden on mobile since it eats 260px of a phone canvas. */}
+      <div className="hidden md:flex">
+        <Sidebar active={view} onNavigate={setView} exceptionCount={exceptionCount} onHome={() => setView("landing")} />
+      </div>
+      {/* Mobile top bar + bottom nav. Fixed-position, so main content just needs top/bottom padding. */}
+      <MobileNav active={view} onNavigate={setView} exceptionCount={exceptionCount} onHome={() => setView("landing")} />
+      <main className="flex-1 overflow-hidden bg-[#fcfcfc] pt-[52px] pb-[64px] md:pt-0 md:pb-0">
         {view === "upload" && (
           <UploadPage onRunDemo={runDemo} onRunUpload={runUpload} showToast={showToast}
             onGoDashboard={() => setView("dashboard")} />

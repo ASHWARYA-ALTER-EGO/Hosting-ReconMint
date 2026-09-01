@@ -410,12 +410,11 @@ export default function AgentCockpit({ steps = [], totalMs = 0, decisions = 0, d
         </span>
       </div>
 
-      {/* 3x3 grid */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-        gap: 10,
-      }}>
+      {/* Responsive grid: 2 cols on phone, 3 cols on tablet+ */}
+      <div
+        className="grid grid-cols-2 sm:grid-cols-3"
+        style={{ gap: 10 }}
+      >
         {stationsWithSteps.map(({ station, step }, i) => (
           <AgentStation
             key={station.key}

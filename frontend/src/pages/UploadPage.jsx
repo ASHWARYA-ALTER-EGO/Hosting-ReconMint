@@ -507,13 +507,13 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
         }
       `}</style>
 
-      <div className="max-w-6xl mx-auto p-10 lg:p-12 relative" style={{ zIndex: 1 }}>
-        {/* header */}
-        <header className="flex justify-between items-start mb-10 pb-6" style={{ borderBottom: "2px solid var(--rm-ink)" }}>
-          <div>
+      <div className="max-w-6xl mx-auto p-4 md:p-10 lg:p-12 relative" style={{ zIndex: 1 }}>
+        {/* header - stacks on mobile so the CTA does not shrink below its label */}
+        <header className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-6 md:mb-10 pb-4 md:pb-6" style={{ borderBottom: "2px solid var(--rm-ink)" }}>
+          <div className="min-w-0">
             <p className="rm-label text-[11px] mb-2" style={{ color: "var(--rm-rust)" }}>Reconciliation workspace
             </p>
-            <h1 className="rm-heading text-5xl mb-2 tracking-tight">Upload &amp; Reconcile</h1>
+            <h1 className="rm-heading text-3xl md:text-5xl mb-2 tracking-tight">Upload &amp; Reconcile</h1>
             <p className="rm-body text-sm font-medium" style={{ color: "var(--rm-ink-soft)" }}>
               Bring your sources. We'll validate and reconcile, you tell us which file is which.
             </p>
@@ -521,7 +521,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
           <button
             onClick={runDemo}
             disabled={busy}
-            className="rm-mono group px-5 py-2.5 text-sm font-medium rounded-lg flex items-center transition-all duration-200 disabled:opacity-60 hover:-translate-y-0.5"
+            className="rm-mono group px-5 py-2.5 text-sm font-medium rounded-lg flex items-center justify-center transition-all duration-200 disabled:opacity-60 hover:-translate-y-0.5 flex-shrink-0 self-stretch md:self-auto"
             style={{ background: "var(--rm-card)", border: "1px solid var(--rm-ink)", color: "var(--rm-ink)", boxShadow: "0 1px 2px rgba(31,42,26,0.04), 0 8px 16px -10px rgba(31,42,26,0.2)" }}
           >
             <i className="fa-solid fa-wand-magic-sparkles mr-2" style={{ color: "var(--rm-rust)" }}></i> Try sample data
@@ -555,8 +555,8 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
           </div>
         )}
 
-        {/* progress tracker */}
-        <div className="flex items-center mb-14">
+        {/* progress tracker - horizontally scrollable on narrow viewports */}
+        <div className="flex items-center mb-8 md:mb-14 overflow-x-auto no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
           {PROGRESS_STEPS.map((step, idx) => {
             const stepState = step.id < currentStep ? "done" : step.id === currentStep ? "active" : "upcoming";
             return (
@@ -589,9 +589,9 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
           })}
         </div>
 
-        <div className="grid grid-cols-2 gap-8 mb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8 mb-8 md:mb-10 px-3 md:px-0">
           {/* intake */}
-          <section className="rm-card-flat p-8 flex flex-col premium-shadow transition-all duration-300">
+          <section className="rm-card-flat p-4 md:p-8 flex flex-col premium-shadow transition-all duration-300">
             <div className="flex items-center justify-between mb-2">
               <h2 className="rm-label text-xs font-semibold" style={{ color: "var(--rm-rust)" }}>File Intake</h2>
               <span className="rm-mono text-[10px]" style={{ color: "var(--rm-ink-soft)" }}>one by one, or all at once</span>
@@ -601,7 +601,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
             </p>
 
             {/* ── three explicit, self-labeling drop targets ───────── */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
               {SLOTS.map((s) => {
                 const filled = !!files[s.id];
                 const isDrag = slotDragOver === s.id;
@@ -682,7 +682,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
           </section>
 
           {/* detected */}
-          <section className="rm-card-flat p-8 flex flex-col premium-shadow">
+          <section className="rm-card-flat p-4 md:p-8 flex flex-col premium-shadow">
             <div className="flex justify-between items-center mb-6">
               <h2 className="rm-label text-xs font-semibold" style={{ color: "var(--rm-rust)" }}>
                 Detected Files <span className="rm-body normal-case font-medium ml-1" style={{ color: "var(--rm-ink-soft)" }}>({chosen.length} of 3)</span>
@@ -729,13 +729,13 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
           </section>
         </div>
 
-        {/* actions */}
-        <div className="flex justify-center items-center gap-6 mb-8">
-          <button onClick={runUpload} disabled={busy} className="rm-mono gradient-btn text-white px-10 py-3.5 rounded-lg font-medium flex items-center transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:hover:translate-y-0" style={{ boxShadow: "0 8px 20px -8px rgba(31,42,26,0.4)" }}>
+        {/* actions - stack on mobile, side-by-side from sm+ */}
+        <div className="flex flex-col sm:flex-row justify-center items-stretch sm:items-center gap-3 sm:gap-6 mb-8 px-4 sm:px-0">
+          <button onClick={runUpload} disabled={busy} className="rm-mono gradient-btn text-white px-6 sm:px-10 py-3.5 rounded-lg font-medium flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:hover:translate-y-0" style={{ boxShadow: "0 8px 20px -8px rgba(31,42,26,0.4)" }}>
             {busy === "upload" ? (<><span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin mr-2.5" />Reconciling…</>) : (<>Reconcile now <i className="fa-solid fa-arrow-right ml-2.5 opacity-80"></i></>)}
           </button>
-          <span className="rm-body text-sm font-medium" style={{ color: "var(--rm-ink-soft)" }}>or</span>
-          <button onClick={() => runDemo(true)} disabled={busy} className="rm-mono px-8 py-3.5 rounded-lg font-medium hover:-translate-y-0.5 active:translate-y-0 flex items-center transition-all duration-200 disabled:opacity-60 disabled:hover:translate-y-0" style={{ background: "var(--rm-card)", border: "1px solid var(--rm-ink)", color: "var(--rm-ink)", boxShadow: "0 1px 2px rgba(31,42,26,0.04), 0 8px 16px -10px rgba(31,42,26,0.2)" }}>
+          <span className="rm-body text-sm font-medium text-center" style={{ color: "var(--rm-ink-soft)" }}>or</span>
+          <button onClick={() => runDemo(true)} disabled={busy} className="rm-mono px-6 sm:px-8 py-3.5 rounded-lg font-medium hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center transition-all duration-200 disabled:opacity-60 disabled:hover:translate-y-0" style={{ background: "var(--rm-card)", border: "1px solid var(--rm-ink)", color: "var(--rm-ink)", boxShadow: "0 1px 2px rgba(31,42,26,0.04), 0 8px 16px -10px rgba(31,42,26,0.2)" }}>
             <i className="fa-solid fa-wand-magic-sparkles mr-2.5" style={{ color: "var(--rm-rust)" }}></i>
             {busy === "demo-llm" || busy === "demo" ? "Running full demo (AI + verifier)…" : "Try sample data (demo + AI)"}
           </button>
@@ -904,7 +904,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
       {/* ── batch assignment panel, drop-3-at-once flow ── */}
       {assignPanelOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: "rgba(31,42,26,0.45)" }}>
-          <div className="rm-card-flat rm-panel-in p-8 w-full max-w-2xl premium-shadow">
+          <div className="rm-card-flat rm-panel-in p-4 md:p-8 w-full max-w-2xl premium-shadow">
             <div className="flex items-start justify-between mb-1">
               <div>
                 <h3 className="rm-heading-sm text-lg font-semibold">Which file is which?</h3>
@@ -918,7 +918,7 @@ export default function UploadPage({ onRunDemo, onRunUpload, showToast, onGoDash
             </div>
 
             {/* slot targets */}
-            <div className="grid grid-cols-3 gap-3 my-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 my-6">
               {SLOTS.map((s) => {
                 const filled = !!files[s.id];
                 const isHover = assignHoverSlot === s.id;

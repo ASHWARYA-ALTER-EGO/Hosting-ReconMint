@@ -734,6 +734,21 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
           .rm-steps-grid { grid-template-columns: 1fr !important; }
           .rm-proof-grid { grid-template-columns: 1fr !important; }
         }
+        /* Mobile shrink: outer page padding and hero copy scale on phones */
+        @media (max-width: 820px) {
+          .rm-page-x { padding-left: 20px !important; padding-right: 20px !important; }
+          .rm-hero-title { font-size: clamp(36px, 8vw, 56px) !important; line-height: 1.05 !important; }
+          .rm-hero-sub { font-size: 15px !important; }
+          .rm-section-title { font-size: clamp(24px, 5.5vw, 36px) !important; }
+          .rm-section-pad { padding-top: 48px !important; padding-bottom: 48px !important; }
+          /* Kill sticky header on mobile: it wraps to two rows and overlaps hero copy */
+          .rm-landing-header { position: relative !important; background: transparent !important; backdrop-filter: none !important; box-shadow: none !important; padding: 14px 0 !important; }
+        }
+        @media (max-width: 540px) {
+          .rm-page-x { padding-left: 14px !important; padding-right: 14px !important; }
+          .rm-hero-title { font-size: clamp(30px, 9vw, 44px) !important; }
+          .rm-nav { display: none !important; }  /* horizontal nav collapses; brand + primary CTA stay */
+        }
         @keyframes reconFadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes reconPopIn {
           from { opacity: 0; transform: scale(0.94) translateY(12px); filter: blur(4px); }
@@ -759,12 +774,12 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
         <rect width="100%" height="100%" filter="url(#reconGrain)" />
       </svg>
 
-      <div style={{ maxWidth: 1180, margin: "0 auto", position: "relative", padding: "0 46px" }}>
+      <div className="rm-page-x" style={{ maxWidth: 1180, margin: "0 auto", position: "relative", padding: "0 46px" }}>
         <Perforation side="left" />
         <Perforation side="right" />
 
         {/* Header */}
-        <header style={{
+        <header className="rm-landing-header" style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
           padding: "20px 0", borderBottom: `2px solid ${INK}`,
           flexWrap: "wrap", gap: 14,
@@ -783,12 +798,14 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
               LEDGER No. 0412 RM
             </span>
           </div>
-          <nav style={{ display: "flex", gap: 22, alignItems: "center", flexWrap: "wrap" }}>
-            <NavLink href="#how-it-works">how it works</NavLink>
-            <NavLink href="#features">product</NavLink>
-            <NavLink href="#proof">proof</NavLink>
-            <NavLink href="#razorpay">schema</NavLink>
-            <NavLink href="#builder">builder</NavLink>
+          <nav className="rm-nav-outer" style={{ display: "flex", gap: 22, alignItems: "center", flexWrap: "wrap" }}>
+            <span className="rm-nav" style={{ display: "flex", gap: 22, alignItems: "center", flexWrap: "wrap" }}>
+              <NavLink href="#how-it-works">how it works</NavLink>
+              <NavLink href="#features">product</NavLink>
+              <NavLink href="#proof">proof</NavLink>
+              <NavLink href="#razorpay">schema</NavLink>
+              <NavLink href="#builder">builder</NavLink>
+            </span>
             <InkFillLink href={REPO_URL} extraStyle={{ fontSize: 13, padding: "7px 14px" }}>
               GitHub
             </InkFillLink>
@@ -871,7 +888,7 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
 
       {/* The Problem */}
       <div style={{ background: PANEL, position: "relative" }}>
-        <div style={{ maxWidth: 1180, margin: "0 auto", padding: "56px 46px" }}>
+        <div className="rm-page-x rm-section-pad" style={{ maxWidth: 1180, margin: "0 auto", padding: "56px 46px" }}>
           <Reveal delay={0}><Eyebrow>THE PROBLEM</Eyebrow></Reveal>
           <Reveal delay={70}>
             <h2 style={{ fontFamily: "'Special Elite', monospace", fontSize: 26, marginBottom: 18, maxWidth: 700 }}>
@@ -955,7 +972,7 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
       <TornDivider flip />
 
       {/* How it works */}
-      <div style={{ maxWidth: 1180, margin: "0 auto", padding: "56px 46px" }} id="how-it-works">
+      <div className="rm-page-x rm-section-pad" style={{ maxWidth: 1180, margin: "0 auto", padding: "56px 46px" }} id="how-it-works">
         <Reveal delay={0}><Eyebrow color={CARBON_BLUE}>HOW IT WORKS</Eyebrow></Reveal>
         <Reveal delay={70}>
           <h2 style={{ fontFamily: "'Special Elite', monospace", fontSize: 26, marginBottom: 34, maxWidth: 640 }}>
@@ -974,7 +991,7 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
 
       {/* Trust guarantee */}
       <div style={{ background: PANEL, position: "relative" }}>
-        <div style={{ maxWidth: 1180, margin: "0 auto", padding: "56px 46px" }}>
+        <div className="rm-page-x rm-section-pad" style={{ maxWidth: 1180, margin: "0 auto", padding: "56px 46px" }}>
           <Reveal delay={0}><Eyebrow color={STAMP_RED}>THE TRUST GUARANTEE</Eyebrow></Reveal>
           <Reveal delay={70}>
             <h2 style={{ fontFamily: "'Special Elite', monospace", fontSize: 26, marginBottom: 14, maxWidth: 660 }}>
@@ -996,7 +1013,7 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
       <TornDivider flip />
 
       {/* Feature highlights - covers every direction in the Track 4 brief */}
-      <div style={{ maxWidth: 1180, margin: "0 auto", padding: "56px 46px" }} id="features">
+      <div className="rm-page-x rm-section-pad" style={{ maxWidth: 1180, margin: "0 auto", padding: "56px 46px" }} id="features">
         <Reveal delay={0}><Eyebrow color={CARBON_BLUE}>INSIDE THE PRODUCT</Eyebrow></Reveal>
         <Reveal delay={70}>
           <h2 style={{ fontFamily: "'Special Elite', monospace", fontSize: 26, marginBottom: 10, maxWidth: 720 }}>
@@ -1037,7 +1054,7 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
           backgroundImage: `linear-gradient(90deg, transparent, ${GOLD}22, transparent)`,
           opacity: 0.5,
         }} />
-        <div style={{ maxWidth: 1180, margin: "0 auto", padding: "54px 46px", position: "relative" }}>
+        <div className="rm-page-x rm-section-pad" style={{ maxWidth: 1180, margin: "0 auto", padding: "54px 46px", position: "relative" }}>
           <Reveal delay={0}>
             <div style={{
               fontFamily: "'IBM Plex Mono', monospace", fontSize: 11,
@@ -1086,7 +1103,7 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
       <TornDivider flip />
 
       {/* Built for Razorpay */}
-      <div style={{ maxWidth: 1180, margin: "0 auto", padding: "56px 46px" }} id="razorpay">
+      <div className="rm-page-x rm-section-pad" style={{ maxWidth: 1180, margin: "0 auto", padding: "56px 46px" }} id="razorpay">
         <Reveal delay={0}><Eyebrow color={VERIFY_GREEN}>BUILT FOR RAZORPAY</Eyebrow></Reveal>
         <Reveal delay={70}>
           <h2 style={{ fontFamily: "'Special Elite', monospace", fontSize: 26, marginBottom: 14, maxWidth: 680 }}>
@@ -1191,7 +1208,7 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
 
       {/* Builder */}
       <div style={{ background: PANEL }} id="builder">
-        <div style={{ maxWidth: 1180, margin: "0 auto", padding: "50px 46px" }}>
+        <div className="rm-page-x" style={{ maxWidth: 1180, margin: "0 auto", padding: "50px 46px" }}>
           <Reveal delay={0}><Eyebrow>THE BUILDER</Eyebrow></Reveal>
           <Reveal delay={80} y={16}>
             <div style={{
