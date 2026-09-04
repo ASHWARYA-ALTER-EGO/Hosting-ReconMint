@@ -354,7 +354,7 @@ def ask(payload: AskRequest):
                 "question": question,
                 "answer": (f"The agent hit an internal error while answering: {detail}. "
                            "This usually means the run's audit data is stale or the LLM key "
-                           "is unset — try re-running the reconcile, or check RECONMINT_LLM key."),
+                           "is unset :  try re-running the reconcile, or check RECONMINT_LLM key."),
                 "figures": [], "rows": [], "verified": False,
                 "trace": [
                     {"title": "Received question", "detail": question[:80], "ms": 0, "status": "done"},
@@ -683,7 +683,7 @@ def run_razorpay_verification(run_id: str):
     Payload includes: HTTP status, latency, X-Razorpay-Request-Id (the id an auditor
     can quote back to Razorpay support), the URL that was hit, and up to N shaped
     live records from the merchant's test account (real payments if any, otherwise
-    real orders — that's transparent to the caller via the `reason` field).
+    real orders ,  that's transparent to the caller via the `reason` field).
     """
     if not audit.get_run(run_id):
         return JSONResponse(status_code=404, content={"error": "not_found",
@@ -693,7 +693,7 @@ def run_razorpay_verification(run_id: str):
         return JSONResponse(status_code=404, content={
             "error": "no_verification",
             "detail": ("No live Razorpay API handshake stored for this run. "
-                       "This means the run was reconciled before the sponsor-API step was "
+                       "This means the run was reconciled before the live-Razorpay-API step was "
                        "added, or RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET were not set."),
         })
     return v
@@ -805,7 +805,7 @@ def run_truth_anchor(run_id: str, payment_id: str):
     """Appeal one payment to the live Razorpay API. The API's response is the tiebreaker:
     if it disagrees with the merchant's uploaded CSV, the CSV is stale (or the id is bogus).
 
-    This is the sponsor-API-as-appeals-court endpoint. It is called from the Exceptions
+    This is the Razorpay-API-as-appeals-court endpoint. It is called from the Exceptions
     drawer's "Verify against Razorpay" button, or from the aggregate /scan endpoint."""
     if not audit.get_run(run_id):
         return JSONResponse(status_code=404, content={"error": "not_found",
@@ -907,7 +907,7 @@ def benchmark_results():
 
 @app.get("/razorpay/health")
 def razorpay_health():
-    """One-shot: is the sponsor API reachable RIGHT NOW with our keys?"""
+    """One-shot: is the Razorpay API reachable RIGHT NOW with our keys?"""
     from backend.agent import razorpay_client as rzp
     if not rzp.keys_configured():
         return {"ok": False, "reason": "missing_keys",
@@ -933,7 +933,7 @@ def run_quality_signals(run_id: str):
       - integrity:               data-quality flags (blank UTR, zero-amount, missing date)
 
     Each signal has: value, label, grade (A/B/C/D), and a short rationale.
-    Grades are NOT F1 — they are heuristics for "does this batch look trustworthy".
+    Grades are NOT F1 ,  they are heuristics for "does this batch look trustworthy".
     """
     if not audit.get_run(run_id):
         return JSONResponse(status_code=404, content={"error": "not_found",
@@ -1013,7 +1013,7 @@ def run_quality_signals(run_id: str):
             "value_pct": round(adherence_pct, 2),
             "detail": f"{adherent}/{checked} settlements match the reconstructed fee schedule within Rs.1",
             "grade": grade(adherence_pct),
-            "why": "Independent check — if the bank net matches the fee formula, the batch is arithmetically sound.",
+            "why": "Independent check ,  if the bank net matches the fee formula, the batch is arithmetically sound.",
         },
         {
             "key": "triage_certainty",
@@ -1021,14 +1021,14 @@ def run_quality_signals(run_id: str):
             "value_pct": round(triage_certainty_pct, 2),
             "detail": f"{total_flagged - unknown}/{max(total_flagged, 1)} flagged records have a known reason code",
             "grade": grade(triage_certainty_pct),
-            "why": "'unknown_resolution' means the engine couldn't classify — a red flag on data shape.",
+            "why": "'unknown_resolution' means the engine couldn't classify ,  a red flag on data shape.",
         },
         {
             "key": "fuzzy_confidence",
             "label": "Fuzzy match quality",
             "value_pct": round((fuzzy_mean or 0.0) * 100, 2) if fuzzy_confs else None,
             "detail": (f"n={len(fuzzy_confs)} · mean {fuzzy_mean:.3f} · min {fuzzy_min:.3f} · max {fuzzy_max:.3f}"
-                       if fuzzy_confs else "no fuzzy matches — all matched exactly"),
+                       if fuzzy_confs else "no fuzzy matches ,  all matched exactly"),
             "grade": grade((fuzzy_mean or 1.0) * 100) if fuzzy_confs else "A",
             "why": "Mean confidence of accepted near-misses. High mean = engine is not stretching.",
         },
@@ -1038,7 +1038,7 @@ def run_quality_signals(run_id: str):
             "value_pct": None,
             "detail": f"{duplicates} duplicate payment_id detected and quarantined",
             "grade": "A" if duplicates == 0 else ("B" if duplicates <= 5 else "C"),
-            "why": "Duplicates that made it through would double-count cash — good if zero, tolerable if handled.",
+            "why": "Duplicates that made it through would double-count cash ,  good if zero, tolerable if handled.",
         },
         {
             "key": "integrity",
@@ -1548,7 +1548,7 @@ def adjustment_memo_html(decision_id: int):
 </style></head><body>
 <div class="memo">
   <div class="stamp">Verified</div>
-  <div class="subtitle">— Reconciliation adjustment memo</div>
+  <div class="subtitle">,  Reconciliation adjustment memo</div>
   <h1>Memo #{decision_id}</h1>
   <div class="subtitle">Issued {m['issued_at']} by {m['issued_by']} · run {m['run_id']}</div>
 
@@ -1557,7 +1557,7 @@ def adjustment_memo_html(decision_id: int):
     <div class="kv">
       <div class="k">Payment ID</div><div class="v">{rec['payment_id']}</div>
       <div class="k">Type</div><div class="v">{rec['record_type']}</div>
-      <div class="k">Settled date</div><div class="v">{rec['settled_date'] or '—'}</div>
+      <div class="k">Settled date</div><div class="v">{rec['settled_date'] or ', '}</div>
       <div class="k">Amount</div><div class="v">₹ {rec['amount_rupees']:,.2f}</div>
     </div>
   </div>
@@ -1565,7 +1565,7 @@ def adjustment_memo_html(decision_id: int):
   <div class="section">
     <h2>Reconciliation finding</h2>
     <div class="kv">
-      <div class="k">Engine reason</div><div class="v">{recon['engine_reason'] or '—'}</div>
+      <div class="k">Engine reason</div><div class="v">{recon['engine_reason'] or ', '}</div>
       <div class="k">Resolution</div><div class="v">{recon['engine_resolution']}</div>
       <div class="k">Match method</div><div class="v">{recon['match_method']} (confidence {recon['confidence']})</div>
       <div class="k">Severity</div><div class="v">{recon['severity']}</div>
@@ -1578,8 +1578,8 @@ def adjustment_memo_html(decision_id: int):
     <h2>Operator resolution</h2>
     <div class="kv">
       <div class="k">Reason</div><div class="v">{res['reason_label']}</div>
-      <div class="k">Resolved at</div><div class="v">{res['resolved_at'] or '—'}</div>
-      <div class="k">Note</div><div class="v">{res['note'] or '—'}</div>
+      <div class="k">Resolved at</div><div class="v">{res['resolved_at'] or ', '}</div>
+      <div class="k">Note</div><div class="v">{res['note'] or ', '}</div>
     </div>
     <p style="font-size:12px;color:#5C6752;margin-top:6px;">{res['narrative']}</p>
   </div>
@@ -1635,7 +1635,7 @@ def run_resolutions(run_id: str):
 
 @app.get("/runs/{run_id}/cfo-brief.html")
 def cfo_brief(run_id: str):
-    """CFO morning brief — a one-page print-ready HTML summary that combines cash
+    """CFO morning brief ,  a one-page print-ready HTML summary that combines cash
     position + top exceptions + forecast + tax exposure + resolution progress into
     a shareable artifact the merchant CFO can open in their inbox every morning.
 
@@ -1746,7 +1746,7 @@ def cfo_brief(run_id: str):
 </style></head><body>
 <div class="brief">
   <div class="stamp">CFO Brief</div>
-  <div class="subtitle">— Reconciliation morning brief</div>
+  <div class="subtitle">,  Reconciliation morning brief</div>
   <h1>Cash & exceptions · {today}</h1>
   <div class="subtitle">Run <b>{run_id}</b> · {meta['settlement_active']} settlements processed in {meta['elapsed_seconds']}s ·
     {meta['reconciled_rate_pct']}% fully reconciled</div>

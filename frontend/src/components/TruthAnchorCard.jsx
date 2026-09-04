@@ -7,7 +7,7 @@ import * as api from "../api.js";
 // disagrees with the API, that is a real finding (stale export, wrong id, ghost
 // record) that no amount of three-way file matching could reveal on its own.
 //
-// This is the actual use of the sponsor API in ReconMint. It is a second verifier,
+// This is the actual use of the Razorpay API in ReconMint. It is a second verifier,
 // alongside the hallucination verifier: one guards the LLM, one guards the source
 // data. The Razorpay-blue accent is kept, but the card behaves as a finance
 // finding, not as a badge.

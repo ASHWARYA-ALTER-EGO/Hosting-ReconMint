@@ -40,7 +40,7 @@ METRICS = {
 }
 
 REFUSE_ANSWER = (
-    "I only answer questions about this reconciliation run — the uploaded orders, settlement, "
+    "I only answer questions about this reconciliation run: the uploaded orders, settlement, "
     "and bank files, and the fees, payouts, exceptions, and payment IDs in them. "
     "Ask something about this batch, for example fees, match rate, or a payment id."
 )
@@ -56,7 +56,7 @@ CAPABILITIES_ANSWER = (
 
 SOURCE_FILES_ANSWER = (
     "This run is based on three labeled files: orders, settlement report, and bank statement "
-    "(CSV or Excel). I don't dump raw rows here — ask about fees, exceptions, match rate, "
+    "(CSV or Excel). I don't dump raw rows here. Ask about fees, exceptions, match rate, "
     "or a payment id from those files."
 )
 
@@ -75,12 +75,15 @@ _OFF_TOPIC_RE = re.compile(
 )
 
 _ON_TOPIC_RE = re.compile(
+    # Word boundaries are only at the start, not the end, so plural forms like
+    # "exceptions", "fees", "settlements", "payments" all match the singular stem.
+    # Was previously \b...\b which refused "how many exceptions" as off-topic.
     r"\b(fee|mdr|gst|tcs|utr|reconcil|settlement|payout|exception|mismatch|"
     r"chargeback|refund|duplicate|variance|payment|order|bank|ledger|"
     r"csv|xlsx|xls|excel|workbook|spreadsheet|file|column|upload|gross|"
     r"net|batch|run|match rate|matched|unmatched|razorpay|gateway|merchant|"
     r"invoice|debit|credit|amount|rupee|inr|landed|credited|pay_|"
-    r"orders|statement|report|review|resolve|fix|handle|escalate)\b",
+    r"orders|statement|report|review|resolve|fix|handle|escalate|count|how many)",
     re.I,
 )
 

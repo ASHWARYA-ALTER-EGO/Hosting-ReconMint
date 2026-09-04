@@ -127,7 +127,7 @@ def reconcile(data_dir: str | None = None, persist: bool = True,
             s.update(extra)
         trace.append(s)
 
-    # ---- 0. live Razorpay API handshake (sponsor-product truth anchor) ----
+    # ---- 0. live Razorpay API handshake (live Razorpay API as truth anchor) ----
     # Best-effort: any failure here must NEVER stop the reconcile. Reason gets
     # surfaced honestly on the Dashboard's verification card.
     ts = time.perf_counter()

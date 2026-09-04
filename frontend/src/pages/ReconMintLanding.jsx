@@ -1036,7 +1036,7 @@ export default function ReconMintLanding({ onGetStarted } = {}) {
           {/* Row 2 - the agent proof + revenue advice + Razorpay API grounding */}
           <FeatureCard tag="AGENT" color={CARBON_BLUE} title="Repair Agent branching" body="Per record, three strategies tried in order. First winner accepts. Every attempt logged in the Decisions tree." delay={260} />
           <FeatureCard tag="ADVICE" color={VERIFY_GREEN} title="Fee-slab recommendation" body="Reads observed MDR, compares against Razorpay slabs, projects annual savings. Turns audit into revenue advice." delay={310} />
-          <FeatureCard tag="SPONSOR" color={STAMP_RED} title="Live Razorpay handshake" body="At ingest we call api.razorpay.com/v1/orders with the test keys. Real IDs. Real X-Request-Id an auditor can quote." delay={360} />
+          <FeatureCard tag="RAZORPAY API" color={STAMP_RED} title="Live Razorpay handshake" body="At ingest we call api.razorpay.com/v1/orders with the test keys. Real IDs. Real X-Request-Id an auditor can quote." delay={360} />
 
           {/* Row 3 - the loop-closing + verified Q&A + benchmark */}
           <FeatureCard tag="LOOP" color={CARBON_BLUE} title="Adjustment memo · closes the loop" body="Resolve any exception and you get a printable HTML memo plus a JSON webhook payload naming the downstream target." delay={410} />

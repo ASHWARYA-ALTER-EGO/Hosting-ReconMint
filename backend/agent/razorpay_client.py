@@ -1,6 +1,6 @@
 """
 Live Razorpay API client used at ingest time to prove the pipeline is grounded in the
-sponsor's real product, not just a schema imitation of it.
+live Razorpay API, not just a schema imitation of it.
 
 What this module does (all deterministic, no LLM):
 

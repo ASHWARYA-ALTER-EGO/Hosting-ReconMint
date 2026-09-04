@@ -128,7 +128,7 @@ export default function RazorpayLiveCard({ runId }) {
         </button>
       </div>
 
-      {/* expanded: real records the sponsor API returned */}
+      {/* expanded: real records the Razorpay API returned */}
       {expanded && (
         <div style={{ padding: "12px 16px 14px", fontSize: 11.5 }}>
           <div style={{ fontSize: 9.5, letterSpacing: "0.14em", textTransform: "uppercase", color: SOFT, marginBottom: 8, fontWeight: 700 }}>

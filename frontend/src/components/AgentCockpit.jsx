@@ -47,7 +47,7 @@ const STATIONS = [
     key: "razorpay", number: "01", name: "Razorpay-check Agent",
     role: "live API grounding", icon: "fa-shield-check",
     match: /razorpay/i, accent: C.rzpBlue,
-    explain: "Calls api.razorpay.com at ingest with your test keys and pulls 3 real records. Proves the pipeline is grounded in the live sponsor product, not a schema imitation.",
+    explain: "Calls api.razorpay.com at ingest with your test keys and pulls 3 real records. Proves the pipeline is grounded in the live Razorpay API, not a schema imitation.",
   },
   {
     key: "ingest", number: "02", name: "Ingest Agent",

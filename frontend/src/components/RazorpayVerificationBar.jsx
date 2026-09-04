@@ -26,7 +26,7 @@ export default function RazorpayVerificationBar({ runId }) {
   if (!data) return null;
   const ok = data.ok;
   if (!ok) {
-    // Show a red bar naming what to fix - so the operator sees WHY the sponsor API is quiet.
+    // Show a red bar naming what to fix - so the operator sees WHY the Razorpay API is quiet.
     return (
       <div className="flex items-center gap-3 px-4 py-2 rounded-md font-mono text-[11.5px]"
         style={{ background: "rgba(181,67,47,0.08)", border: `1px solid ${C.rust}`, color: C.ink }}>

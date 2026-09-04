@@ -257,7 +257,7 @@ export function razorpayHealth() {
   return req(`/razorpay/health`);
 }
 
-// Truth-Anchor Agent: appeals-court on the sponsor API.
+// Truth-Anchor Agent: appeals-court on the Razorpay API.
 // scanTruthAnchor() sweeps the run's exceptions; verifyPaymentAgainstRazorpay()
 // appeals a single payment. Both return normalized diffs the UI renders as badges.
 export function scanTruthAnchor(runId, { limit = 25 } = {}) {
